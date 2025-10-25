@@ -56,16 +56,3 @@ uv run openevolve-run \
 
 - Best program: `runs/tla_counter/best/best_program.tla`
 - Logs/checkpoints: `runs/tla_counter/`
-
-### Using OpenRouter
-
-If you prefer OpenRouter, set your key and use the OpenRouter API base:
-
-```bash
-export OPENAI_API_KEY="$OPENROUTER_API_KEY"
-uv run openevolve-run \
-  /tlaevolve/examples/tla_counter/initial_program.tla \
-  /tlaevolve/examples/tla_counter/evaluator.py \
-  --config /tlaevolve/examples/tla_counter/config.yaml \
-  --output /tlaevolve/runs/tla_counter \
-```
