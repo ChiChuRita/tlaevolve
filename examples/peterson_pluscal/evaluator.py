@@ -23,12 +23,17 @@ DEPTH_RES = [
 ]
 STATE_GEN_RE = re.compile(r"(?i)states generated\s*[:=]\s*([0-9,]+)")
 STATE_DIST_RE = re.compile(r"(?i)(?:distinct states(?: found)?|states found)\s*[:=]\s*([0-9,]+)")
-INVARIANT_WEIGHTS = {"WithinBounds": 1.0}
+INVARIANT_WEIGHTS = {"MutualExclusion": 1.0}
 
 
 def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
-    metrics: Dict[str, float] = {"combined_score": 0.0}
-    # Keep string error as metric for logging, but also surface as artifact
+    metrics: Dict[str, float] = {
+        "combined_score": 0.0,
+        "trace_length": 0.0,
+        "runtime_ms": 0.0,
+        "passed": 0.0,
+        "stage": 0.0,
+    }
     metrics["error"] = message  # type: ignore[assignment]
     artifacts = {"stderr": message}
     if tb:
@@ -39,6 +44,26 @@ def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
 def evaluate(program_path: str) -> EvaluationResult:
     try:
         return _evaluate(program_path)
+    except subprocess.CalledProcessError as exc:  # Capture PlusCal translator errors with output
+        stdout_text = getattr(exc, "stdout", "") or ""
+        stderr_text = getattr(exc, "stderr", "") or ""
+        # Surface the exact compiler error in the 'error' metric for next-iteration learning
+        message = stderr_text or stdout_text or str(exc)
+        return EvaluationResult(
+            metrics={
+                "combined_score": 0.0,
+                "trace_length": 0.0,
+                "runtime_ms": 0.0,
+                "passed": 0.0,
+                "stage": 0.0,
+                "error": message,  # type: ignore[dict-item]
+            },
+            artifacts={
+                "translator_stdout": stdout_text,
+                "translator_stderr": stderr_text or str(exc),
+                "traceback": traceback.format_exc(),
+            },
+        )
     except subprocess.TimeoutExpired:
         return _error_result("Timeout during evaluation")
     except Exception as exc:  # noqa: BLE001 - return structured error
@@ -60,35 +85,30 @@ def _evaluate(program_path: str) -> EvaluationResult:
 
     with tempfile.TemporaryDirectory() as temp_dir_str:
         temp_dir = Path(temp_dir_str)
-        module_name = _extract_module_name(program_src)
-        if module_name:
-            tla_filename = f"{module_name}.tla"
-        elif program_src.suffix == ".tla":
-            tla_filename = program_src.name
-        else:
-            tla_filename = "program.tla"
+        module_name = _extract_module_name(program_src) or program_src.stem
+        # Ensure module-file name match for PlusCal translation
+        tla_filename = f"{module_name}.tla"
         tla_path = temp_dir / tla_filename
         shutil.copy2(program_src, tla_path)
 
-        stage1_ok, stage1_trace_len, stage1_ms, stage1_out, stage1_err = _run_stage(
+        # Stage 1 (normalize with depth 12 for scoring)
+        stage1_ok, stage1_trace_len, stage1_ms, stage1_out, stage1_err = _run_pluscal_stage(
             work_dir=temp_dir,
             jar_path=jar_path,
             tla_path=tla_path,
-            max_value=2,
-            max_depth=6,
             timeout_seconds=60,
         )
 
         if stage1_ok:
-            stage2_ok, stage2_trace_len, stage2_ms, stage2_out, stage2_err = _run_stage(
+            # Stage 2 (normalize with depth 30 for scoring)
+            stage2_ok, stage2_trace_len, stage2_ms, stage2_out, stage2_err = _run_pluscal_stage(
                 work_dir=temp_dir,
                 jar_path=jar_path,
                 tla_path=tla_path,
-                max_value=3,
-                max_depth=10,
                 timeout_seconds=60,
             )
-            # Compute combined_score for Stage 2 outcome directly
+
+            # Compute combined_score directly from Stage 2 outcome
             if stage2_ok:
                 violated_invariant = None
                 search_depth = _parse_search_depth(stage2_out) or _parse_search_depth(stage1_out)
@@ -97,7 +117,7 @@ def _evaluate(program_path: str) -> EvaluationResult:
                     passed=True,
                     trace_length=0,
                     search_depth=search_depth,
-                    max_depth=10,
+                    max_depth=30,
                     violated_invariant=violated_invariant,
                 )
                 if states_info:
@@ -110,11 +130,12 @@ def _evaluate(program_path: str) -> EvaluationResult:
                     passed=False,
                     trace_length=stage2_trace_len,
                     search_depth=search_depth,
-                    max_depth=10,
+                    max_depth=30,
                     violated_invariant=violated_invariant,
                 )
                 if states_info:
                     breakdown = {**breakdown, **states_info}
+
             summary = _summarize_tlc_stdout(stage1_out)
             return EvaluationResult(
                 metrics={
@@ -131,6 +152,7 @@ def _evaluate(program_path: str) -> EvaluationResult:
                     "score_breakdown": breakdown,
                 },
             )
+
         violated_invariant = _parse_violated_invariant(stage1_out)
         search_depth = _parse_search_depth(stage1_out)
         states_info = _parse_state_counts(stage1_out)
@@ -138,7 +160,7 @@ def _evaluate(program_path: str) -> EvaluationResult:
             passed=False,
             trace_length=stage1_trace_len,
             search_depth=search_depth,
-            max_depth=6,
+            max_depth=12,
             violated_invariant=violated_invariant,
         )
         summary = _summarize_tlc_stdout(stage1_out)
@@ -159,20 +181,20 @@ def _evaluate(program_path: str) -> EvaluationResult:
         )
 
 
-def _run_stage(
+def _run_pluscal_stage(
     work_dir: Path,
     jar_path: str,
     tla_path: Path,
-    max_value: int,
-    max_depth: int,
     timeout_seconds: int,
 ) -> Tuple[bool, int, float, str, str]:
+    # Translate PlusCal to TLA+
+    _translate_pluscal(work_dir=work_dir, jar_path=jar_path, tla_filename=tla_path.name, timeout_seconds=timeout_seconds)
+
+    # TLC config for Peterson (no constants required)
     cfg_path = work_dir / "program.cfg"
     cfg_content = "\n".join([
         "SPECIFICATION Spec",
-        "INVARIANTS WithinBounds",
-        f"CONSTANTS Max = {max_value}",
-        f"CONSTANTS MaxDepth = {max_depth}",
+        "INVARIANTS MutualExclusion",
     ])
     cfg_path.write_text(cfg_content)
 
@@ -207,6 +229,25 @@ def _run_stage(
         trace_length = _estimate_trace_length(stdout_text)
 
     return ok, trace_length, elapsed_ms, stdout_text, stderr_text
+
+
+def _translate_pluscal(work_dir: Path, jar_path: str, tla_filename: str, timeout_seconds: int) -> None:
+    # pcal.trans is invoked via -cp
+    cmd = [
+        "java",
+        "-cp",
+        jar_path,
+        "pcal.trans",
+        tla_filename,
+    ]
+    subprocess.run(
+        cmd,
+        cwd=work_dir,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=True,
+    )
 
 
 def _estimate_trace_length(tlc_stdout: str) -> int:
@@ -302,7 +343,6 @@ def _compute_combined_score(
         }
         return combined_score, breakdown
 
-    # Ratios
     denom = float(max_depth if max_depth > 0 else 1)
     depth_ratio = min(max(trace_length, 0), max_depth) / denom
     if search_depth is None:
@@ -333,10 +373,11 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
-        print("Usage: python evaluator.py <path/to/mutated_program.tla>")
+        print("Usage: python evaluator.py <path/to/program_with_pluscal.tla>")
         raise SystemExit(2)
     result = evaluate(sys.argv[1])
 
+    # Print metrics and artifacts for CLI usage
     if isinstance(result, EvaluationResult):
         print({k: v for k, v in result.metrics.items()})
         if result.artifacts:
@@ -344,7 +385,23 @@ if __name__ == "__main__":
             if summary:
                 print("\nSummary:")
                 print(summary)
+            
+            stdout = result.artifacts.get("stdout")
+            if stdout:
+                print("\n--- stdout ---")
+                print(stdout)
+            
+            stderr = result.artifacts.get("stderr")
+            if stderr:
+                print("\n--- stderr ---")
+                print(stderr)
+            
+            score_breakdown = result.artifacts.get("score_breakdown")
+            if score_breakdown:
+                print("\n--- score_breakdown ---")
+                print(score_breakdown)
     else:
+        # Backward compatibility, though evaluate returns EvaluationResult
         print(result)
         try:
             artifacts = result.get("artifacts", {})

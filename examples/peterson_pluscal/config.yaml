@@ -1,0 +1,37 @@
+# PlusCal Peterson Evolution (minimal)
+max_iterations: 120
+checkpoint_interval: 12
+log_level: "INFO"
+file_suffix: ".tla"
+
+llm:
+  primary_model: "gpt-5"
+  system_message: |
+    You are an expert PlusCal engineer. Modify only the EVOLVE-BLOCK within the
+    PlusCal `(* --algorithm ... *)` section of the module. Produce valid PlusCal
+    syntax (no raw TLA+ outside the algorithm body). Do not change the module
+    header, the `ProcSet` definition, variable names, or the invariant(s).
+
+    Goal: ensure mutual exclusion. The translation defines `Spec`; the top-level
+    invariant is `MutualExclusion == ~(pc[0] = "CS" /\ pc[1] = "CS")`. Keep the
+    critical section labeled `CS`.
+
+prompt:
+  num_top_programs: 4
+  num_diverse_programs: 3
+  include_artifacts: true
+  max_artifact_bytes: 8192
+
+database:
+  population_size: 80
+  num_islands: 3
+  migration_interval: 10
+  feature_dimensions:
+    - "trace_length"
+    - "runtime_ms"
+  feature_bins: 8
+
+evaluator:
+  timeout: 60
+  parallel_evaluations: 2
+  cascade_evaluation: false
