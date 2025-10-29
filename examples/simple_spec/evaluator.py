@@ -98,12 +98,12 @@ def _evaluate(program_path: str) -> EvaluationResult:
         ok = SUCCESS_MSG in stdout_text
 
         if not ok:
-            # Extract invariant for clarity
             inv = INVARIANT_RE.search(stdout_text)
-            msg = f"Invariant violated: {inv.group(1)}" if inv else "Invariant violated"
+            violated = inv is not None
+            combined = 50.0 if violated else 0.0
             return EvaluationResult(
                 metrics={
-                    "combined_score": 0.0,
+                    "combined_score": float(combined),
                     "trace_length": _estimate_trace_length(stdout_text),
                     "runtime_ms": float(elapsed_ms),
                     "passed": float(0.0),
@@ -115,12 +115,9 @@ def _evaluate(program_path: str) -> EvaluationResult:
             )
 
         # Passed
-        search_depth = _parse_search_depth(stdout_text)
-        states_info = _parse_state_counts(stdout_text)
-
         return EvaluationResult(
             metrics={
-                "combined_score": 120.0,
+                "combined_score": 100.0,
                 "trace_length": 0,
                 "runtime_ms": float(elapsed_ms),
                 "passed": float(1.0),
@@ -128,10 +125,6 @@ def _evaluate(program_path: str) -> EvaluationResult:
             artifacts={
                 "stdout": stdout_text,
                 "stderr": stderr_text,
-                "score_breakdown": {
-                    "search_depth": search_depth or 0,
-                    **states_info,
-                },
                 "summary": "No error has been found. Specification satisfied.",
             },
         )

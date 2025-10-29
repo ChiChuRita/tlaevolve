@@ -23,6 +23,7 @@ DEPTH_RES = [
 ]
 STATE_GEN_RE = re.compile(r"(?i)states generated\s*[:=]\s*([0-9,]+)")
 STATE_DIST_RE = re.compile(r"(?i)(?:distinct states(?: found)?|states found)\s*[:=]\s*([0-9,]+)")
+INVARIANT_WEIGHTS = {"MutualExclusion": 1.0}
 
 
 def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
@@ -42,6 +43,25 @@ def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
 def evaluate(program_path: str) -> EvaluationResult:
     try:
         return _evaluate(program_path)
+    except subprocess.CalledProcessError as exc:  # Capture PlusCal translator errors with output
+        stdout_text = getattr(exc, "stdout", "") or ""
+        stderr_text = getattr(exc, "stderr", "") or ""
+        # Surface the exact compiler error in the 'error' metric for next-iteration learning
+        message = stderr_text or stdout_text or str(exc)
+        return EvaluationResult(
+            metrics={
+                "combined_score": 0.0,
+                "trace_length": 0.0,
+                "runtime_ms": 0.0,
+                "passed": 0.0,
+                "error": message,  # type: ignore[dict-item]
+            },
+            artifacts={
+                "translator_stdout": stdout_text,
+                "translator_stderr": stderr_text or str(exc),
+                "traceback": traceback.format_exc(),
+            },
+        )
     except subprocess.TimeoutExpired:
         return _error_result("Timeout during evaluation")
     except Exception as exc:  # noqa: BLE001 - return structured error
@@ -63,78 +83,41 @@ def _evaluate(program_path: str) -> EvaluationResult:
 
     with tempfile.TemporaryDirectory() as temp_dir_str:
         temp_dir = Path(temp_dir_str)
-        module_name = _extract_module_name(program_src)
-        if module_name:
-            tla_filename = f"{module_name}.tla"
-        elif program_src.suffix == ".tla":
-            tla_filename = program_src.name
-        else:
-            tla_filename = "program.tla"
+        module_name = _extract_module_name(program_src) or program_src.stem
+        # Ensure module-file name match for PlusCal translation
+        tla_filename = f"{module_name}.tla"
         tla_path = temp_dir / tla_filename
         shutil.copy2(program_src, tla_path)
 
-        # Single-run TLC with larger constants (remove smaller tests/stages)
-        cfg_path = temp_dir / "program.cfg"
-        cfg_content = "\n".join([
-            "SPECIFICATION Spec",
-            "INVARIANTS WithinBounds",
-            "CONSTANTS Max = 3",
-            "CONSTANTS MaxDepth = 10",
-        ])
-        cfg_path.write_text(cfg_content)
-
-        cmd = [
-            "java",
-            "-XX:+UseParallelGC",
-            "-Xmx1g",
-            "-jar",
-            jar_path,
-            "-tool",
-            "-config",
-            str(cfg_path),
-            str(tla_path.name),
-        ]
-
-        start_time = time.time()
-        proc = subprocess.run(
-            cmd,
-            cwd=temp_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
+        ok, trace_length, elapsed_ms, stdout_text, stderr_text = _run_pluscal_stage(
+            work_dir=temp_dir,
+            jar_path=jar_path,
+            tla_path=tla_path,
+            timeout_seconds=60,
         )
-        elapsed_ms = (time.time() - start_time) * 1000.0
 
-        stdout_text = proc.stdout
-        stderr_text = proc.stderr
-        ok = SUCCESS_MSG in stdout_text
+        violated_invariant = _parse_violated_invariant(stdout_text)
 
         if ok:
-            summary = _summarize_tlc_stdout(stdout_text)
-            return EvaluationResult(
-                metrics={
-                    "combined_score": 100.0,
-                    "trace_length": 0,
-                    "runtime_ms": float(elapsed_ms),
-                    "passed": float(1.0),
-                },
-                artifacts={
-                    "stdout": stdout_text,
-                    "stderr": stderr_text,
-                    "summary": summary,
-                },
-            )
+            combined = 100.0
+            passed = 1.0
+            effective_trace_len = 0
+        elif violated_invariant:
+            combined = 50.0
+            passed = 0.0
+            effective_trace_len = trace_length
+        else:
+            combined = 0.0
+            passed = 0.0
+            effective_trace_len = trace_length
 
-        # Failure: invariant violation vs other errors
-        violated_invariant = _parse_violated_invariant(stdout_text)
-        combined = 50.0 if violated_invariant else 0.0
         summary = _summarize_tlc_stdout(stdout_text)
         return EvaluationResult(
             metrics={
                 "combined_score": float(combined),
-                "trace_length": int(_estimate_trace_length(stdout_text)),
+                "trace_length": int(effective_trace_len),
                 "runtime_ms": float(elapsed_ms),
-                "passed": float(0.0),
+                "passed": float(passed),
             },
             artifacts={
                 "stdout": stdout_text,
@@ -142,6 +125,75 @@ def _evaluate(program_path: str) -> EvaluationResult:
                 "summary": summary,
             },
         )
+
+
+def _run_pluscal_stage(
+    work_dir: Path,
+    jar_path: str,
+    tla_path: Path,
+    timeout_seconds: int,
+) -> Tuple[bool, int, float, str, str]:
+    # Translate PlusCal to TLA+
+    _translate_pluscal(work_dir=work_dir, jar_path=jar_path, tla_filename=tla_path.name, timeout_seconds=timeout_seconds)
+
+    # TLC config for Peterson (no constants required)
+    cfg_path = work_dir / "program.cfg"
+    cfg_content = "\n".join([
+        "SPECIFICATION Spec",
+        "INVARIANTS SafeBounds",
+    ])
+    cfg_path.write_text(cfg_content)
+
+    cmd = [
+        "java",
+        "-XX:+UseParallelGC",
+        "-Xmx1g",
+        "-jar",
+        jar_path,
+        "-tool",
+        "-config",
+        str(cfg_path),
+        str(tla_path.name),
+    ]
+
+    start_time = time.time()
+    proc = subprocess.run(
+        cmd,
+        cwd=work_dir,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+    )
+    elapsed_ms = (time.time() - start_time) * 1000.0
+
+    stdout_text = proc.stdout
+    stderr_text = proc.stderr
+    ok = SUCCESS_MSG in stdout_text
+
+    trace_length = 0
+    if not ok:
+        trace_length = _estimate_trace_length(stdout_text)
+
+    return ok, trace_length, elapsed_ms, stdout_text, stderr_text
+
+
+def _translate_pluscal(work_dir: Path, jar_path: str, tla_filename: str, timeout_seconds: int) -> None:
+    # pcal.trans is invoked via -cp
+    cmd = [
+        "java",
+        "-cp",
+        jar_path,
+        "pcal.trans",
+        tla_filename,
+    ]
+    subprocess.run(
+        cmd,
+        cwd=work_dir,
+        capture_output=True,
+        text=True,
+        timeout=timeout_seconds,
+        check=True,
+    )
 
 
 def _estimate_trace_length(tlc_stdout: str) -> int:
@@ -237,7 +289,6 @@ def _compute_combined_score(
         }
         return combined_score, breakdown
 
-    # Ratios
     denom = float(max_depth if max_depth > 0 else 1)
     depth_ratio = min(max(trace_length, 0), max_depth) / denom
     if search_depth is None:
@@ -268,10 +319,11 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
-        print("Usage: python evaluator.py <path/to/mutated_program.tla>")
+        print("Usage: python evaluator.py <path/to/program_with_pluscal.tla>")
         raise SystemExit(2)
     result = evaluate(sys.argv[1])
 
+    # Print metrics and artifacts for CLI usage
     if isinstance(result, EvaluationResult):
         print({k: v for k, v in result.metrics.items()})
         if result.artifacts:
@@ -279,7 +331,23 @@ if __name__ == "__main__":
             if summary:
                 print("\nSummary:")
                 print(summary)
+            
+            stdout = result.artifacts.get("stdout")
+            if stdout:
+                print("\n--- stdout ---")
+                print(stdout)
+            
+            stderr = result.artifacts.get("stderr")
+            if stderr:
+                print("\n--- stderr ---")
+                print(stderr)
+            
+            score_breakdown = result.artifacts.get("score_breakdown")
+            if score_breakdown:
+                print("\n--- score_breakdown ---")
+                print(score_breakdown)
     else:
+        # Backward compatibility, though evaluate returns EvaluationResult
         print(result)
         try:
             artifacts = result.get("artifacts", {})

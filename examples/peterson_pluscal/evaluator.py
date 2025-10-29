@@ -32,7 +32,6 @@ def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
         "trace_length": 0.0,
         "runtime_ms": 0.0,
         "passed": 0.0,
-        "stage": 0.0,
     }
     metrics["error"] = message  # type: ignore[assignment]
     artifacts = {"stderr": message}
@@ -55,7 +54,6 @@ def evaluate(program_path: str) -> EvaluationResult:
                 "trace_length": 0.0,
                 "runtime_ms": 0.0,
                 "passed": 0.0,
-                "stage": 0.0,
                 "error": message,  # type: ignore[dict-item]
             },
             artifacts={
@@ -91,92 +89,40 @@ def _evaluate(program_path: str) -> EvaluationResult:
         tla_path = temp_dir / tla_filename
         shutil.copy2(program_src, tla_path)
 
-        # Stage 1 (normalize with depth 12 for scoring)
-        stage1_ok, stage1_trace_len, stage1_ms, stage1_out, stage1_err = _run_pluscal_stage(
+        ok, trace_length, elapsed_ms, stdout_text, stderr_text = _run_pluscal_stage(
             work_dir=temp_dir,
             jar_path=jar_path,
             tla_path=tla_path,
             timeout_seconds=60,
         )
 
-        if stage1_ok:
-            # Stage 2 (normalize with depth 30 for scoring)
-            stage2_ok, stage2_trace_len, stage2_ms, stage2_out, stage2_err = _run_pluscal_stage(
-                work_dir=temp_dir,
-                jar_path=jar_path,
-                tla_path=tla_path,
-                timeout_seconds=60,
-            )
+        violated_invariant = _parse_violated_invariant(stdout_text)
 
-            # Compute combined_score directly from Stage 2 outcome
-            if stage2_ok:
-                violated_invariant = None
-                search_depth = _parse_search_depth(stage2_out) or _parse_search_depth(stage1_out)
-                states_info = _parse_state_counts(stage2_out)
-                combined_score, breakdown = _compute_combined_score(
-                    passed=True,
-                    trace_length=0,
-                    search_depth=search_depth,
-                    max_depth=30,
-                    violated_invariant=violated_invariant,
-                )
-                if states_info:
-                    breakdown = {**breakdown, **states_info}
-            else:
-                violated_invariant = _parse_violated_invariant(stage2_out) or _parse_violated_invariant(stage1_out)
-                search_depth = _parse_search_depth(stage2_out) or _parse_search_depth(stage1_out)
-                states_info = _parse_state_counts(stage2_out)
-                combined_score, breakdown = _compute_combined_score(
-                    passed=False,
-                    trace_length=stage2_trace_len,
-                    search_depth=search_depth,
-                    max_depth=30,
-                    violated_invariant=violated_invariant,
-                )
-                if states_info:
-                    breakdown = {**breakdown, **states_info}
+        if ok:
+            combined = 100.0
+            passed = 1.0
+            effective_trace_len = 0
+        elif violated_invariant:
+            combined = 50.0
+            passed = 0.0
+            effective_trace_len = trace_length
+        else:
+            combined = 0.0
+            passed = 0.0
+            effective_trace_len = trace_length
 
-            summary = _summarize_tlc_stdout(stage1_out)
-            return EvaluationResult(
-                metrics={
-                    "combined_score": float(combined_score),
-                    "trace_length": int(0 if stage2_ok else stage2_trace_len),
-                    "runtime_ms": float(stage1_ms + stage2_ms),
-                    "passed": float(1.0 if stage2_ok else 0.0),
-                    "stage": float(2),
-                },
-                artifacts={
-                    "stdout": stage1_out + ARTIFACT_SEPARATOR + stage2_out,
-                    "stderr": stage1_err + ARTIFACT_SEPARATOR + stage2_err,
-                    "summary": summary,
-                    "score_breakdown": breakdown,
-                },
-            )
-
-        violated_invariant = _parse_violated_invariant(stage1_out)
-        search_depth = _parse_search_depth(stage1_out)
-        states_info = _parse_state_counts(stage1_out)
-        combined_score, breakdown = _compute_combined_score(
-            passed=False,
-            trace_length=stage1_trace_len,
-            search_depth=search_depth,
-            max_depth=12,
-            violated_invariant=violated_invariant,
-        )
-        summary = _summarize_tlc_stdout(stage1_out)
+        summary = _summarize_tlc_stdout(stdout_text)
         return EvaluationResult(
             metrics={
-                "combined_score": float(combined_score),
-                "trace_length": int(stage1_trace_len),
-                "runtime_ms": float(stage1_ms),
-                "passed": float(0.0),
-                "stage": float(1),
+                "combined_score": float(combined),
+                "trace_length": int(effective_trace_len),
+                "runtime_ms": float(elapsed_ms),
+                "passed": float(passed),
             },
             artifacts={
-                "stdout": stage1_out,
-                "stderr": stage1_err,
+                "stdout": stdout_text,
+                "stderr": stderr_text,
                 "summary": summary,
-                "score_breakdown": {**breakdown, **({} if not states_info else states_info)},
             },
         )
 
