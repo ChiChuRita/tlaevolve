@@ -23,7 +23,8 @@ DEPTH_RES = [
 ]
 STATE_GEN_RE = re.compile(r"(?i)states generated\s*[:=]\s*([0-9,]+)")
 STATE_DIST_RE = re.compile(r"(?i)(?:distinct states(?: found)?|states found)\s*[:=]\s*([0-9,]+)")
-INVARIANT_WEIGHTS = {"MutualExclusion": 1.0}
+
+ 
 
 
 def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
@@ -31,7 +32,6 @@ def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
         "combined_score": 0.0,
         "trace_length": 0.0,
         "runtime_ms": 0.0,
-        "passed": 0.0,
     }
     metrics["error"] = message  # type: ignore[assignment]
     artifacts = {"stderr": message}
@@ -53,7 +53,6 @@ def evaluate(program_path: str) -> EvaluationResult:
                 "combined_score": 0.0,
                 "trace_length": 0.0,
                 "runtime_ms": 0.0,
-                "passed": 0.0,
                 "error": message,  # type: ignore[dict-item]
             },
             artifacts={
@@ -108,15 +107,12 @@ def _evaluate(program_path: str) -> EvaluationResult:
 
         if ok:
             combined = 100.0
-            passed = 1.0
             effective_trace_len = 0
         elif violated_invariant:
             combined = 50.0
-            passed = 0.0
             effective_trace_len = trace_length
         else:
             combined = 0.0
-            passed = 0.0
             effective_trace_len = trace_length
 
         summary = _summarize_tlc_stdout(stdout_text)
@@ -125,7 +121,6 @@ def _evaluate(program_path: str) -> EvaluationResult:
                 "combined_score": float(combined),
                 "trace_length": int(effective_trace_len),
                 "runtime_ms": float(elapsed_ms),
-                "passed": float(passed),
             },
             artifacts={
                 "stdout": stdout_text,
@@ -266,54 +261,7 @@ def _parse_state_counts(tlc_stdout: str) -> Dict[str, int]:
     return info
 
 
-def _compute_combined_score(
-    *,
-    passed: bool,
-    trace_length: int,
-    search_depth: int | None,
-    max_depth: int,
-    violated_invariant: str | None,
-) -> Tuple[float, Dict]:
-    if passed:
-        normalized = 1.0
-        combined_score = 120.0
-        breakdown = {
-            "violated_invariant": None,
-            "trace_length": 0,
-            "search_depth": search_depth or 0,
-            "depth_ratio": 1.0,
-            "coverage_ratio": (min(search_depth or 0, max_depth) / float(max_depth)) if search_depth is not None else 0.0,
-            "severity_weight": 0.0,
-            "raw": 1.0,
-            "normalized": normalized,
-            "combined_score": combined_score,
-        }
-        return combined_score, breakdown
-
-    denom = float(max_depth if max_depth > 0 else 1)
-    depth_ratio = min(max(trace_length, 0), max_depth) / denom
-    if search_depth is None:
-        coverage_ratio = 0.0
-    else:
-        coverage_ratio = min(max(search_depth, 0), max_depth) / denom
-
-    weight = INVARIANT_WEIGHTS.get(violated_invariant or "", 1.0)
-    raw = 0.6 * depth_ratio + 0.4 * coverage_ratio
-    normalized = max(0.0, raw - 0.5 * weight * (1.0 - raw))
-    combined_score = max(0.0, min(120.0, 120.0 * normalized))
-
-    breakdown = {
-        "violated_invariant": violated_invariant,
-        "trace_length": trace_length,
-        "search_depth": search_depth or 0,
-        "depth_ratio": depth_ratio,
-        "coverage_ratio": coverage_ratio,
-        "severity_weight": weight,
-        "raw": raw,
-        "normalized": normalized,
-        "combined_score": combined_score,
-    }
-    return combined_score, breakdown
+ 
 
 
 if __name__ == "__main__":
