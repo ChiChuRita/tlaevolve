@@ -89,10 +89,18 @@ def _evaluate(program_path: str) -> EvaluationResult:
         tla_path = temp_dir / tla_filename
         shutil.copy2(program_src, tla_path)
 
+        # Load TLC configuration from external pluscal.cfg located next to the program
+        cfg_src = program_src.parent / "pluscal.cfg"
+        if not cfg_src.exists():
+            return _error_result(f"Could not find TLC config file: {cfg_src}")
+        cfg_path = temp_dir / "pluscal.cfg"
+        shutil.copy2(cfg_src, cfg_path)
+
         ok, trace_length, elapsed_ms, stdout_text, stderr_text = _run_pluscal_stage(
             work_dir=temp_dir,
             jar_path=jar_path,
             tla_path=tla_path,
+            cfg_path=cfg_path,
             timeout_seconds=60,
         )
 
@@ -131,18 +139,11 @@ def _run_pluscal_stage(
     work_dir: Path,
     jar_path: str,
     tla_path: Path,
+    cfg_path: Path,
     timeout_seconds: int,
 ) -> Tuple[bool, int, float, str, str]:
     # Translate PlusCal to TLA+
     _translate_pluscal(work_dir=work_dir, jar_path=jar_path, tla_filename=tla_path.name, timeout_seconds=timeout_seconds)
-
-    # TLC config for Peterson (no constants required)
-    cfg_path = work_dir / "program.cfg"
-    cfg_content = "\n".join([
-        "SPECIFICATION Spec",
-        "INVARIANTS SafeBounds",
-    ])
-    cfg_path.write_text(cfg_content)
 
     cmd = [
         "java",

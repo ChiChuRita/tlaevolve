@@ -3,7 +3,7 @@ EXTENDS Naturals, TLC
 
 \* EVOLVE-BLOCK-START
 (* --algorithm SimpleAlgo
-variables c, x = 0;
+variables x = 0;
 begin
   Loop:
   while (x < 10) do
