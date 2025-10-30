@@ -18,3 +18,5 @@ wheels/
 .env
 runs/
 openevolve_output/
+commands.md
+archiv/
