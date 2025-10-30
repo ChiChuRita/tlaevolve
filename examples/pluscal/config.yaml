@@ -57,8 +57,6 @@ prompt:
       satisfies all declared invariants.
     - Never modify the invariant text itself or the SPECIFICATION/INVARIANTS
       entries used by TLC.
-    - Return changes only using the required SEARCH/REPLACE diff format, and keep
-      all replacements limited to the PlusCal algorithm body.
   evaluator_system_message: |
     You are an expert PlusCal/TLA+ reviewer.
     Judge programs strictly on whether all invariants hold without any edits to
@@ -70,7 +68,7 @@ prompt:
   num_diverse_programs: 2 # Number of diverse programs to include
 
   # Template stochasticity
-  use_template_stochasticity: true # Use random variations in templates for diversity
+  use_template_stochasticity: false # Use random variations in templates for diversity
   template_variations: # Different phrasings for parts of the template
     improvement_suggestion:
       - "Here's how we could improve this code:"
