@@ -115,7 +115,7 @@ uv run openevolve-run \
   examples/pluscal/evaluator.py \
   --config examples/pluscal/config.yaml \
   --output runs/pluscal \
-  --iterations 20
+  --iterations 20 \
   --target-score 100
 ```
 
