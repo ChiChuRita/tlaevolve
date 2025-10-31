@@ -116,7 +116,20 @@ uv run openevolve-run \
   --config examples/pluscal/config.yaml \
   --output runs/pluscal \
   --iterations 20
+  --target-score 100
 ```
+
+## Start the UI
+
+Install Requirements in openevolve Repo:
+'''bash
+pip install -r scripts/requirements.txt
+'''
+
+Start the UI:
+'''bash
+python scripts/visualizer.py --path ./runs/pluscal/checkpoints/checkpoint_10
+'''
 
 Notes:
 
