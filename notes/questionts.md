@@ -1,0 +1,1 @@
+- where define fairness? In PlusCal code, or outside close to the properties?
