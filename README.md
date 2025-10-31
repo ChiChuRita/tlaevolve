@@ -66,9 +66,10 @@ Run evolution directly; the evaluator will translate PlusCal and run TLC with `p
 
 ```bash
 uv run openevolve-run \
-  examples/pluscal/initial_program.tla \
-  examples/pluscal/evaluator.py \
-  --output runs/pluscal \
+  examples/simple_count/initial_program.tla \
+  examples/simple_count/evaluator.py \
+  --config examples/simple_count/config.yaml \
+  --output runs/simple_count \
   --iterations 20 \
   --target-score 100
 ```
@@ -99,8 +100,7 @@ uv run openevolve-run \
 Install minimal UI deps and launch the viewer against a checkpoint:
 
 ```bash
-uv pip install -r openevolve/scripts/requirements.txt
-uv run python openevolve/scripts/visualizer.py --path ./runs/pluscal/checkpoints/checkpoint_10
+python openevolve/scripts/visualizer.py --path runs/dijstra-mutex/checkpoints/checkpoint_20
 ```
 
 ---
