@@ -122,14 +122,14 @@ uv run openevolve-run \
 ## Start the UI
 
 Install Requirements in openevolve Repo:
-'''bash
+```bash
 pip install -r scripts/requirements.txt
-'''
+```
 
 Start the UI:
-'''bash
-python scripts/visualizer.py --path ./runs/pluscal/checkpoints/checkpoint_10
-'''
+```bash
+python scripts/visualizer.py --path ./runs/pluscal/checkpoints/checkpoint_20
+```
 
 Notes:
 
