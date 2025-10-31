@@ -91,16 +91,16 @@ def _evaluate(program_path: str) -> EvaluationResult:
         # Load TLC configuration from external pluscal.cfg
         # Prefer a cfg next to the input program; if not found (e.g., program is in a temp dir),
         # fall back to the cfg that lives next to this evaluator.
-        cfg_src = program_src.parent / "pluscal.cfg"
+        cfg_src = program_src.parent / "tlc_config.cfg"
         if not cfg_src.exists():
-            fallback_cfg = Path(__file__).resolve().parent / "pluscal.cfg"
+            fallback_cfg = Path(__file__).resolve().parent / "tlc_config.cfg"
             if fallback_cfg.exists():
                 cfg_src = fallback_cfg
             else:
                 return _error_result(
                     f"Could not find TLC config file: {cfg_src}"
                 )
-        cfg_path = temp_dir / "pluscal.cfg"
+        cfg_path = temp_dir / "tlc_config.cfg"
         shutil.copy2(cfg_src, cfg_path)
 
         ok, trace_length, elapsed_ms, stdout_text, stderr_text = _run_pluscal_stage(

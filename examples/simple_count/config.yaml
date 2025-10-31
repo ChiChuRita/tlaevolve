@@ -67,8 +67,7 @@ prompt:
     - Declare algorithm variables on a single `variables` line with initial values; use `:=` for assignments and terminate statements with `;`.
     - Use valid PlusCal control flow only: `while ... do ... end while`, `if/then/else`, `await`, `with`, `either/or`, and labeled statements.
     - For concurrent processes, use `process <Name> \in <ExistingProcessSet>` exactly as declared by the module (e.g., `Proc`, `ProcIds`). Use `self` to index per-process state. Preserve any required labels (e.g., `CS`) exactly.
-    - Encode fairness directly in PlusCal when progress/liveness is required: use `fair process` (weak fairness) or `fair+ process` (strong fairness).
-    - If the algorithm is currently single-threaded without a process block, wrap the body into a single fair process, e.g. `fair process Main \\in {0} ... end process;`, while preserving labels and keeping the `variables` declaration at algorithm scope.
+    
     
     Name-safety (avoid collisions with translator/TLC names):
     - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
@@ -77,7 +76,7 @@ prompt:
     TLC compatibility:
     - The program must translate with `pcal.trans` without errors.
     - It must work with `SPECIFICATION Spec` and the existing `INVARIANTS` from the `.cfg` file.
-    - Do NOT add fairness at the TLA+ level (e.g., no `FairSpec` or edits to `Spec`); fairness must be embedded via PlusCal `fair`/`fair+` processes inside the EVOLVE-BLOCK.
+    
     - Keep any labels and variable names that invariants depend on unchanged (e.g., keep `CS` if the invariant checks it).
     
     Invariant-driven workflow:
