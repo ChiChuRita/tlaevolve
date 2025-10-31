@@ -1,3 +1,6 @@
+> [!NOTE]
+> 🔗 Quick access: [Add your link here](https://example.com)
+
 # TLC JAR setup
 
 1. Install Java (11+ recommended; 17+ preferred). Verify:
