@@ -3,14 +3,14 @@
 # You can use this as a template for your own configuration
 
 # General settings
-max_iterations: 100 # Maximum number of evolution iterations
+max_iterations: 10 # Maximum number of evolution iterations
 checkpoint_interval: 10 # Save checkpoints every N iterations
 log_level: "INFO" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_dir: null # Custom directory for logs (default: output_dir/logs)
 random_seed: 42 # Random seed for reproducibility (null = random, 42 = default)
 
 # Evolution settings
-diff_based_evolution: true # Use diff-based evolution (true) or full rewrites (false)
+diff_based_evolution: false # Use diff-based evolution (true) or full rewrites (false)
 max_code_length: 10000 # Maximum allowed code length in characters
 
 # Early stopping settings
@@ -47,21 +47,33 @@ prompt:
   template_dir: null # Custom directory for prompt templates
   system_message: |
     You are an expert PlusCal/TLA+ engineer evolving a specification.
-    - Modify only the PlusCal algorithm inside the `(* --algorithm ... *)` section,
-      preferably restricted to the EVOLVE-BLOCK if present.
-    - Do NOT change the module header, EXTENDS, constants, variable declarations,
-      macros, Init, Next, Spec, or any invariant definitions.
-    - Do NOT rename or alter any identifiers referenced by invariants (variables,
-      labels like CS, processes, or operator names).
-    - Your goal is to produce program changes such that the translated Spec
-      satisfies all declared invariants.
-    - Never modify the invariant text itself or the SPECIFICATION/INVARIANTS
-      entries used by TLC.
-  evaluator_system_message: |
-    You are an expert PlusCal/TLA+ reviewer.
-    Judge programs strictly on whether all invariants hold without any edits to
-    their definitions. Responses that change invariant text or names should be
-    considered invalid.
+    
+    Strict TLC-compatible output requirements:
+    - Modify only the PlusCal algorithm inside the `(* --algorithm ... *)` section, strictly within the EVOLVE-BLOCK if present.
+    - Respond with the PlusCal algorithm block ONLY, starting with `(* --algorithm ...` and ending with `end algorithm *)`. No explanations, no markdown fences, no TLA+ translation, and no edits outside the block.
+    - Do NOT change the module header, EXTENDS, CONSTANT(S), any TLA+ operators, Init/Next/Spec, or invariant definitions.
+    - Do NOT rename or alter any identifiers referenced by the TLC configuration or invariants (variables, process names, or labels such as `CS`).
+    
+    PlusCal syntax constraints:
+    - Declare algorithm variables on a single `variables` line with initial values; use `:=` for assignments and terminate statements with `;`.
+    - Use valid PlusCal control flow only: `while ... do ... end while`, `if/then/else`, `await`, `with`, `either/or`, and labeled statements.
+    - For concurrent processes, use `process <Name> \in <ExistingProcessSet>` exactly as declared by the module (e.g., `Proc`, `ProcIds`). Use `self` to index per-process state. Preserve any required labels (e.g., `CS`) exactly.
+    
+    Name-safety (avoid collisions with translator/TLC names):
+    - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
+    - Do NOT define TLA+ operators, constants, or macros outside the algorithm.
+    
+    TLC compatibility:
+    - The program must translate with `pcal.trans` without errors.
+    - It must work with `SPECIFICATION Spec` and the existing `INVARIANTS` from the `.cfg` file.
+    - Keep any labels and variable names that invariants depend on unchanged (e.g., keep `CS` if the invariant checks it).
+    
+    Output strictly the PlusCal algorithm block and nothing else.
+  # evaluator_system_message: |
+  #   You are an expert PlusCal/TLA+ reviewer.
+  #   Judge programs strictly on whether all invariants hold without any edits to
+  #   their definitions. Responses that change invariant text or names should be
+  #   considered invalid.
 
   # Number of examples to include in the prompt
   num_top_programs: 3 # Number of top-performing programs to include

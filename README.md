@@ -111,10 +111,10 @@ The evaluator attaches a detailed breakdown under `artifacts.score_breakdown`:
 
 ```bash
 uv run openevolve-run \
-  examples/peterson_pluscal/initial_program.tla \
-  examples/peterson_pluscal/evaluator.py \
-  --config examples/peterson_pluscal/config.yaml \
-  --output runs/peterson_pluscal \
+  examples/pluscal/initial_program.tla \
+  examples/pluscal/evaluator.py \
+  --config examples/pluscal/config.yaml \
+  --output runs/pluscal \
   --iterations 20
 ```
 
