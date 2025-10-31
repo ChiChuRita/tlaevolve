@@ -3,7 +3,7 @@
 # You can use this as a template for your own configuration
 
 # General settings
-max_iterations: 30 # Maximum number of evolution iterations
+max_iterations: 40 # Maximum number of evolution iterations
 checkpoint_interval: 10 # Save checkpoints every N iterations
 log_level: "INFO" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_dir: null # Custom directory for logs (default: output_dir/logs)
@@ -65,6 +65,7 @@ prompt:
     
     PlusCal syntax quick reference (TLC translator-friendly):
     - Use braces style with parentheses around conditions: `while (COND) { ... }`, `if (COND) { ... } else { ... };`
+    - Do NOT use `begin`/`end` or `end algorithm`; always use `{` and `}` for blocks and the algorithm body.
     - Terminate every statement with `;` (including `goto`, assignments, `skip`, `await`, and `if`/`else` blocks).
     - Assign with `:=`. In `variables`, initialize with `=` or choose with `\in` (e.g., `variables b = [i \in Proc |-> TRUE], k \in Proc;`). Local process vars use `variable x ;`.
     - Process header: `process (P \in Proc)` and index per-process state with `self` (e.g., `b[self]`).
@@ -74,6 +75,10 @@ prompt:
     - Arrays/functions: `[i \in S |-> v]` comprehensions; update elements with `a[i] := v;`.
     - Use only valid PlusCal control flow: `while`, `if/else`, `with`, `either/or`, `await`, labeled statements, `goto`.
     
+    Atomicity requirement:
+    - Make every action atomic. Place all related state updates that must occur together within a single labeled statement so they execute as one step.
+    - Do not split `await` conditions and the subsequent critical assignments across different labels if they must be atomic.
+    - Avoid non-atomic sequences that could interleave and allow both processes to update the same variable concurrently (e.g., both setting `lock := FALSE`).
     
     Name-safety (avoid collisions with translator/TLC names):
     - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
@@ -101,7 +106,7 @@ prompt:
   #   considered invalid.
 
   # Number of examples to include in the prompt
-  num_top_programs: 3 # Number of top-performing programs to include
+  num_top_programs: 1 # Number of top-performing programs to include
   num_diverse_programs: 2 # Number of diverse programs to include
 
   # Template stochasticity

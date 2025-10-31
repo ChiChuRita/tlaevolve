@@ -85,10 +85,10 @@ This example prefers `examples/hard/config.cfg` (falls back to `pluscal.cfg`). I
 
 ```bash
 uv run openevolve-run \
-  examples/hard/initial_program.tla \
-  examples/hard/evaluator.py \
-  --config examples/hard/config.yaml \
-  --output runs/hard \
+  examples/dijkstra-mutex/initial_program.tla \
+  examples/dijkstra-mutex/evaluator.py \
+  --config examples/dijkstra-mutex/config.yaml \
+  --output runs/dijkstra-mutex \
   --iterations 50 \
   --target-score 100
 ```

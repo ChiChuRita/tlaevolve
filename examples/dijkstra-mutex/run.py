@@ -26,8 +26,6 @@ def main() -> int:
         str(config_yaml),
         "--output",
         str(output_dir),
-        "--iterations",
-        "20",
         "--target-score",
         "100",
     ]

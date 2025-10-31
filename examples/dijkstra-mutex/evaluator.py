@@ -16,6 +16,27 @@ MODULE_HEADER_RE = re.compile(r"^\s*-{2,}\s*MODULE\s+([A-Za-z0-9_]+)\s*-{2,}\s*$
 NAME_MISMATCH_RE = re.compile(r"File name '([^']+)' does not match the name '([^']+)'")
 ARTIFACT_SEPARATOR = "\n---\n"
 
+
+def _artifact_instructions(context: str = "tlc") -> str:
+    if context == "translator":
+        return (
+            "These artifacts are from the PlusCal translator/TLA2Tools for the current program.\n"
+            "Use them to fix syntax/semantic issues in the module header or PlusCal algorithm so translation succeeds.\n"
+            "Once translation passes, TLC will run to check invariants."
+        )
+    return (
+        "These artifacts are TLC outputs from running the current TLA+/PlusCal program.\n"
+        "Use them to edit the PlusCal/TLA+ spec so TLC reports 'No error has been found'.\n"
+        "Key fields:\n"
+        "- summary: short human summary of the TLC result\n"
+        "- stdout: full TLC console output, including any counterexample trace (State 1, State 2, ...)\n"
+        "- stderr: tool diagnostics, if any\n"
+        "Guidance:\n"
+        "- If an invariant is violated, follow the trace to locate and fix the faulty algorithm step.\n"
+        "- Do not modify the TLC config; make changes in the PlusCal/TLA+ spec.\n"
+        "- Ensure the TLA+ module name matches the file name."
+    )
+
 INVARIANT_RE = re.compile(r"(?i)Invariant\s+([A-Za-z0-9_]+)\s+is\s+violated")
 DEPTH_RES = [
     re.compile(r"(?i)Depth(?: of (?:the )?(?:search|state graph))\s*[:=]\s*(\d+)"),
@@ -34,7 +55,7 @@ def _error_result(message: str, *, tb: str | None = None) -> EvaluationResult:
         "runtime_ms": 0.0,
     }
     metrics["error"] = message  # type: ignore[assignment]
-    artifacts = {"stderr": message}
+    artifacts = {"stderr": message, "artifact_instructions": _artifact_instructions()}
     if tb:
         artifacts["traceback"] = tb
     return EvaluationResult(metrics=metrics, artifacts=artifacts)
@@ -59,6 +80,7 @@ def evaluate(program_path: str) -> EvaluationResult:
                 "translator_stdout": stdout_text,
                 "translator_stderr": stderr_text or str(exc),
                 "traceback": traceback.format_exc(),
+                "artifact_instructions": _artifact_instructions("translator"),
             },
         )
     except subprocess.TimeoutExpired:
@@ -124,17 +146,23 @@ def _evaluate(program_path: str) -> EvaluationResult:
             effective_trace_len = trace_length
 
         summary = _summarize_tlc_stdout(stdout_text)
+
+        artifacts: Dict[str, str] = {
+            "stdout": stdout_text,
+            "stderr": stderr_text,
+            "summary": summary,
+            "artifact_instructions": _artifact_instructions(),
+        }
+        if violated_invariant:
+            artifacts["violated_invariant"] = violated_invariant
+
         return EvaluationResult(
             metrics={
                 "combined_score": float(combined),
                 "trace_length": int(effective_trace_len),
                 "runtime_ms": float(elapsed_ms),
             },
-            artifacts={
-                "stdout": stdout_text,
-                "stderr": stderr_text,
-                "summary": summary,
-            },
+            artifacts=artifacts,
         )
 
 

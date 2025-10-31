@@ -65,7 +65,8 @@ prompt:
     
     PlusCal syntax constraints:
     - Declare algorithm variables on a single `variables` line with initial values; use `:=` for assignments and terminate statements with `;`.
-    - Use valid PlusCal control flow only: `while ... do ... end while`, `if/then/else`, `await`, `with`, `either/or`, and labeled statements.
+    - Do NOT use `begin`/`end` or `end algorithm`; always use `{` and `}` for blocks and the algorithm body.
+    - Use braces style with parentheses around conditions: `while (COND) { ... }`, `if (COND) { ... } else { ... };`
     - For concurrent processes, use `process <Name> \in <ExistingProcessSet>` exactly as declared by the module (e.g., `Proc`, `ProcIds`). Use `self` to index per-process state. Preserve any required labels (e.g., `CS`) exactly.
     
     
