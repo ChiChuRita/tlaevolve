@@ -20,13 +20,4 @@ runs/
 openevolve_output/
 commands.md
 archiv/
-playground/README.md
-playground/dijkstra-mutex/evaluator.py
-playground/dijkstra-mutex/initial_program.tla
-playground/dijkstra-mutex/tlc_config.cfg
-playground/fairness_inside/evaluator.py
-playground/fairness_inside/initial_program.tla
-playground/fairness_inside/tlc_config.cfg
-playground/fairness_outside/evaluator.py
-playground/fairness_outside/initial_program.tla
-playground/fairness_outside/pluscal.cfg
+playground/
