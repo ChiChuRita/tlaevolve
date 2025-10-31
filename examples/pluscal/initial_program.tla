@@ -4,16 +4,19 @@ EXTENDS Naturals, TLC
 \* EVOLVE-BLOCK-START
 (* --algorithm SimpleAlgo
 variables x = 0;
+fair process Main \in {1}
 begin
   Loop:
-  while (x < 10) do
-    x := x + 1;
-  end while;
+  skip;
+end process;
 end algorithm *)
 \* EVOLVE-BLOCK-END
 
 \* Invariant(s)
-SafeBounds == x \in {0, 1, 2, 3}
+SafeBounds == x \in 0..10
+
+\* Property(s)
+CountsUp == (x = 0) /\ (\A k \in 0..9 : ((x = k) ~> (x = k + 1)))
 
 ====
 
