@@ -15,6 +15,7 @@ SUCCESS_MSG = "No error has been found"
 MODULE_HEADER_RE = re.compile(r"^\s*-{2,}\s*MODULE\s+([A-Za-z0-9_]+)\s*-{2,}\s*$")
 NAME_MISMATCH_RE = re.compile(r"File name '([^']+)' does not match the name '([^']+)'")
 ARTIFACT_SEPARATOR = "\n---\n"
+SYNTAX_ERR_LINE_RE = re.compile(r"(?i)\bline\s+(\d+)\s*,\s*column\s+(\d+)")
 
 
 def _artifact_instructions(context: str = "tlc") -> str:
@@ -69,19 +70,30 @@ def evaluate(program_path: str) -> EvaluationResult:
         stderr_text = getattr(exc, "stderr", "") or ""
         # Surface the exact compiler error in the 'error' metric for next-iteration learning
         message = stderr_text or stdout_text or str(exc)
+
+        # Compute syntax score based on how deep the first syntax error is in the file.
+        # Score ranges 0..50 where 50 corresponds to successful translation or an error at EOF.
+        syntax_score, syntax_breakdown = _syntax_score_from_translator_error(
+            program_path, stdout_text, stderr_text
+        )
+
+        artifacts = {
+            "translator_stdout": stdout_text,
+            "translator_stderr": stderr_text or str(exc),
+            "traceback": traceback.format_exc(),
+            "artifact_instructions": _artifact_instructions("translator"),
+        }
+        if syntax_breakdown:
+            artifacts["score_breakdown"] = syntax_breakdown  # includes syntax_score details
+
         return EvaluationResult(
             metrics={
-                "combined_score": 0.0,
+                "combined_score": float(syntax_score),
                 "trace_length": 0.0,
                 "runtime_ms": 0.0,
                 "error": message,  # type: ignore[dict-item]
             },
-            artifacts={
-                "translator_stdout": stdout_text,
-                "translator_stderr": stderr_text or str(exc),
-                "traceback": traceback.format_exc(),
-                "artifact_instructions": _artifact_instructions("translator"),
-            },
+            artifacts=artifacts,
         )
     except subprocess.TimeoutExpired:
         return _error_result("Timeout during evaluation")
@@ -295,6 +307,46 @@ def _parse_state_counts(tlc_stdout: str) -> Dict[str, int]:
         except Exception:
             pass
     return info
+
+
+def _syntax_score_from_translator_error(
+    program_path: str, stdout_text: str, stderr_text: str
+) -> tuple[float, Dict[str, float]]:
+    """
+    Derive a syntax score in [0, 50] based on the reported error line relative to
+    total file length. If the error line cannot be determined, returns 0.
+    """
+    error_text = (stderr_text or "") + "\n" + (stdout_text or "")
+    line_no: int | None = None
+    m = SYNTAX_ERR_LINE_RE.search(error_text)
+    if m:
+        try:
+            line_no = int(m.group(1))
+        except Exception:
+            line_no = None
+
+    total_lines = 0
+    try:
+        with Path(program_path).open("r", encoding="utf-8", errors="ignore") as f:
+            total_lines = sum(1 for _ in f)
+    except Exception:
+        total_lines = 0
+
+    ratio = 0.0
+    if line_no is not None and total_lines > 0:
+        # Clamp ratio to [0, 1]
+        ratio = max(0.0, min(1.0, line_no / float(total_lines)))
+
+    syntax_score = 50.0 * ratio
+
+    breakdown: Dict[str, float] = {
+        "syntax_score": float(syntax_score),
+        "syntax_error_line": float(line_no or 0),
+        "total_lines": float(total_lines),
+        "syntax_ratio": float(ratio),
+    }
+
+    return syntax_score, breakdown
 
 
  

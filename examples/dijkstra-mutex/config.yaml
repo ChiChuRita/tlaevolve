@@ -42,7 +42,7 @@ llm:
   # Request parameters
   timeout: 60 # Timeout for API requests in seconds
   retries: 3 # Number of retries for failed requests
-  retry_delay: 5 # Delay between retries in seconds
+  retry_delay: 10 # Delay between retries in seconds
 
 # Prompt configuration
 prompt:
@@ -69,16 +69,19 @@ prompt:
     - Terminate every statement with `;` (including `goto`, assignments, `skip`, `await`, and `if`/`else` blocks).
     - Assign with `:=`. In `variables`, initialize with `=` or choose with `\in` (e.g., `variables b = [i \in Proc |-> TRUE], k \in Proc;`). Local process vars use `variable x ;`.
     - Process header: `process (P \in Proc)` and index per-process state with `self` (e.g., `b[self]`).
-    - Labels: `L1:` at statement start; jump via `goto L1;`. Preserve invariant-dependent labels (e.g., `CS`).
+    - Labels: `L1:` at statement start; jump via `goto L1;`. Preserve invariant-dependent labels (e.g., `CS`). Each labeled statement must correspond to exactly one hardware-level operation (see Hardware-level operations constraint below). Do not group multiple operations under one label.
     - Operators: booleans `TRUE`/`FALSE`, not `~`, inequality `#`, membership `\in`, set difference `\`, and array indexing `a[i]`.
     - `with` binding: `with (x \in S) { ... }`. Example loops: `while (TRUE) { ... }`, `while (temp # {}) { ... }`.
     - Arrays/functions: `[i \in S |-> v]` comprehensions; update elements with `a[i] := v;`.
     - Use only valid PlusCal control flow: `while`, `if/else`, `with`, `either/or`, `await`, labeled statements, `goto`.
     
-    Atomicity requirement:
-    - Make every action atomic. Place all related state updates that must occur together within a single labeled statement so they execute as one step.
-    - Do not split `await` conditions and the subsequent critical assignments across different labels if they must be atomic.
-    - Avoid non-atomic sequences that could interleave and allow both processes to update the same variable concurrently (e.g., both setting `lock := FALSE`).
+    Hardware-level operations constraint:
+    - Each label must implement exactly one of the following hardware-level operations on shared memory:
+      1) READ (load): Observes shared state only. Allowed forms: `await (COND);` where `COND` reads shared vars and performs no assignment; or a read via `with` that binds to local state without writing to shared state.
+      2) WRITE (store): A single assignment to exactly one shared variable or element (e.g., `x := v;` or `a[i] := v;`).
+      3) ATOMIC RMW (read-modify-write): A single conditional statement that reads and writes the same shared variable exactly once (e.g., a CAS/test-and-set–style `if (x = old) { x := new; } else { skip; };`). No additional reads/writes or variable updates are permitted in this label.
+      4) CONTROL: Pure control transfer with no shared memory effects (e.g., `goto L;` or `skip;`). Includes a label on an `if (COND)` or `while (COND)` header that only evaluates `COND` and branches to subsequent labels; the header must not perform any write.
+    - Not allowed: combining an `await` and a write in the same label; writing multiple shared variables; multiple assignments; reading and writing different shared variables; or placing a sequence `{ s1; s2; ... }` under one label.
     
     Name-safety (avoid collisions with translator/TLC names):
     - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
@@ -97,6 +100,17 @@ prompt:
     - Do not modify invariant names or definitions, and do not rename identifiers or labels used by the invariants.
     
     Output only the edits as requested by the user prompt.
+
+    This is an example of syntactically correct PlusCal code:
+    <example_code>
+    (* --algorithm Mutex
+    { variables x = 0;
+      { Loop: while (x < 10) {
+        Add: x := x + 1;
+        }
+      }
+    } *)
+    </example_code>
     
     Task: a deadlock free mutual exclusion algorithm
   # evaluator_system_message: |
@@ -202,7 +216,7 @@ evaluator:
     - 0.9 # Third stage threshold
 
   # Parallel evaluation
-  parallel_evaluations: 4 # Number of parallel evaluations
+  parallel_evaluations: 2 # Number of parallel evaluations
   # Note: distributed evaluation is not yet implemented
 
   # LLM-based feedback (experimental)
