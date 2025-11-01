@@ -1,0 +1,2 @@
+- Postprocess TLC output
+- Update user message to not include properties all the time
