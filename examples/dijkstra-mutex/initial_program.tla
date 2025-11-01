@@ -16,9 +16,9 @@ CONSTANT Proc
  \* EVOLVE-BLOCK-END
 
 
-InCriticalSection(i) == pc[i] = "cs"
-InNonCriticalSection(i) == pc[i] = "ncs"
-TryingToEnterCriticalSection(i) == ~InCriticalSection(i) /\ ~InNonCriticalSection(i)
+InCriticalSection(i) == pc[i] = "CriticalSection"
+InNonCriticalSection(i) == pc[i] = "NonCriticalSection"
+TryingToEnterCriticalSection(i) == pc[i] = "TryingToEnter"
 
 MutualExclusion == \A i, j \in Proc : 
                     (i # j) => ~ /\ InCriticalSection(i)
@@ -30,5 +30,7 @@ LSpec == Init /\ [][Next]_vars
 DeadlockFreedom == 
     \A i \in Proc : 
       TryingToEnterCriticalSection(i) ~> (\E j \in Proc : InCriticalSection(j))
+
+
 
 =============================================================================

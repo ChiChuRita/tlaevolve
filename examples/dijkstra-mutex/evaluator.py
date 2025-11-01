@@ -150,11 +150,10 @@ def _evaluate(program_path: str) -> EvaluationResult:
         if ok:
             combined = 100.0
             effective_trace_len = 0
-        elif violated_invariant:
-            combined = 50.0
-            effective_trace_len = trace_length
         else:
-            combined = 0.0
+            # Syntax/translation has passed at this point. If TLC did not report success,
+            # assign 50 points regardless of whether the failure is an invariant or temporal violation.
+            combined = 50.0
             effective_trace_len = trace_length
 
         summary = _summarize_tlc_stdout(stdout_text)

@@ -103,7 +103,7 @@ prompt:
 
     This is an example of syntactically correct PlusCal code:
     <example_code>
-    (* --algorithm Mutex
+    (* --algorithm Count
     { variables x = 0;
       { Loop: while (x < 10) {
         Add: x := x + 1;
