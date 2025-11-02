@@ -1,0 +1,1 @@
+Easy Test Case. There are sample solution for this in PlusCal, so it potentially simply recites the solution

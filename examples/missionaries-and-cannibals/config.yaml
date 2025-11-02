@@ -76,7 +76,7 @@ prompt:
     - Use only valid PlusCal control flow: `while`, `if/else`, `with`, `either/or`, `await`, labeled statements, `goto`.
 
     Name-safety (avoid collisions with translator/TLC names):
-    - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
+    - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, `Done`, or any identifier prefixed with `TLATrans_`.
     - Do NOT define TLA+ operators, constants, or macros outside the algorithm.
 
     TLC compatibility:
@@ -89,6 +89,12 @@ prompt:
     - Determine why the current algorithm may violate these invariants and identify the minimal behavioral changes needed.
     - Update only within the EVOLVE-BLOCK so that the translated TLA+ satisfies all invariant checks in the `.cfg`.
     - Do not modify invariant names or definitions, and do not rename identifiers or labels used by the invariants.
+
+    Completeness policy:
+    - Produce a complete, runnable PlusCal algorithm in a single response; do not attempt step-by-step or incremental scaffolding.
+    - Do not include placeholders or dummy code blocks (e.g., '...', 'TODO', stub labels, empty blocks, or labels that only contain a placeholder 'skip').
+    - Only use 'skip' when it is a meaningful control operation; never as filler.
+    - Ensure all branches and labels contain real logic and the algorithm can reach the goal state without additional edits.
 
     Output only the edits as requested by the user prompt.
 
@@ -103,16 +109,15 @@ prompt:
     } *)
     </example_code>
 
-    Problem-specific constraints (mutex-style problems):
-    - Hardware-level operations constraint:
-      - Each label must implement exactly one of the following hardware-level operations on shared memory:
-        1) READ (load): Observes shared state only. Allowed forms: `await (COND);` where `COND` reads shared vars and performs no assignment; or a read via `with` that binds to local state without writing to shared state.
-        2) WRITE (store): A single assignment to exactly one shared variable or element (e.g., `x := v;` or `a[i] := v;`).
-        3) ATOMIC RMW (read-modify-write): A single conditional statement that reads and writes the same shared variable exactly once (e.g., a CAS/test-and-set–style `if (x = old) { x := new; } else { skip; };`). No additional reads/writes or variable updates are permitted in this label.
-        4) CONTROL: Pure control transfer with no shared memory effects (e.g., `goto L;` or `skip;`). Includes a label on an `if (COND)` or `while (COND)` header that only evaluates `COND` and branches to subsequent labels; the header must not perform any write.
-      - Not allowed: combining an `await` and a write in the same label; writing multiple shared variables; multiple assignments; reading and writing different shared variables; or placing a sequence `{ s1; s2; ... }` under one label.
+    Task:
+    <problem_description>
+    There are three missionaries and three cannibals on the left bank of a river. They have a single boat that can carry either one or two people at a time. The boat cannot cross by itself; it must always have at least one person on board.
 
-    Task: a deadlock free mutual exclusion algorithm
+    The objective is to move all six individuals from the left bank to the right bank of the river. However, the movement must follow a critical safety rule: at no point on either bank may the number of cannibals exceed the number of missionaries, unless there are no missionaries present on that side. If this condition is violated, the missionaries on that side are considered to have been eaten, and the configuration is invalid.
+
+    The challenge is to find a sequence of legal crossings that results in everyone safely reaching the right bank, with the boat’s capacity and the safety constraint respected at all times.
+    Implement this algorithm, that moves all missionaries and cannibals from the left bank to the right bank of the river.
+    </problem_description>
   # evaluator_system_message: |
   #   You are an expert PlusCal/TLA+ reviewer.
   #   Judge programs strictly on whether all invariants hold without any edits to

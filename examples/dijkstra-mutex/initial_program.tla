@@ -8,7 +8,7 @@ CONSTANT Proc
 
 \* EVOLVE-BLOCK-START
 (* --algorithm Mutex 
- { variables a = 0
+ { variables ...
    \* this is the initial sceleton program, replace this, including this comment
    process (P \in Proc)
      skip;
