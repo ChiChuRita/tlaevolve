@@ -1,5 +1,5 @@
 ---- MODULE MissionariesAndCannibals ----
-EXTENDS Naturals, FiniteSets, TLC
+EXTENDS Naturals, FiniteSets, TLC, Sequences
 
 
 Missionaries == {"M1", "M2", "M3"}
@@ -7,27 +7,26 @@ Cannibals    == {"C1", "C2", "C3"}
 People       == Missionaries \cup Cannibals
 
 \* EVOLVE-BLOCK-START
-(* --algorithm Algorithm {
+(* --algorithm MissionariesAndCannibals {
 variables
   left = People,
   right = {},
   boat = "left";
 
-\* Helper Method for a single Crossing
-procedure CorssRiver(Passgers) {
+\* Implement a single crossing here, which can then be called multiple times in the main method
+procedure CrossRiver(Passgs) {
   skip:
 }
 
 \* Main Method
 {
-S1:  call Move({"C1", "C2"}); \* Example Call
+\* Call the CrossRiver method here in the correct order to solve the problem
 }
 
 } *)
 \* EVOLVE-BLOCK-END
 
 
-\* Dont touch anything below this line, this is for the TLC model checker
 \* Basic helpers
 CountM(S) == Cardinality(S \cap Missionaries)
 CountC(S) == Cardinality(S \cap Cannibals)
@@ -67,7 +66,8 @@ ProperMove ==
         /\ left'  = left \cup Passengers
 
 \* Every real Next-step must look like a proper move; stuttering is allowed.
-ProperBoatMove == []( [Next]_vars => UNCHANGED vars \/ ProperMove )
+ProperBoatMove ==
+  [] [Next => (UNCHANGED <<left, right, boat>> \/ ProperMove)]_vars
 
 \* Goal / Liveness
 AllAcross == right = People

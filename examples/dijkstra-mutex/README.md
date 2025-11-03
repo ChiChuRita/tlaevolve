@@ -8,3 +8,7 @@ uv run openevolve-run \
   --output runs/dijkstra-mutex \
   --target-score 100
 ```
+
+```bash
+uv run python openevolve/scripts/visualizer.py --path runs/dijkstra-mutex/checkpoints/checkpoint_40
+```

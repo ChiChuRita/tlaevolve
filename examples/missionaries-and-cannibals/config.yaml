@@ -4,16 +4,15 @@
 
 # General settings
 max_iterations: 40 # Maximum number of evolution iterations
-checkpoint_interval: 5 # Save checkpoints every N iterations
-log_level: "DEBUG" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+checkpoint_interval: 1 # Save checkpoints every N iterations
+log_level: "INFO" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_dir: null # Custom directory for logs (default: output_dir/logs)
 random_seed: 42 # Random seed for reproducibility (null = random, 42 = default)
-language: "tla" # Hint templates/formatting for TLA+/PlusCal
-file_suffix: ".tla" # Ensure .tla is used for saved programs
+file_suffix: ".tla"
 
 # Evolution settings
 diff_based_evolution: true # Use diff-based evolution (true) or full rewrites (false)
-max_code_length: 10000 # Maximum allowed code length in characters
+max_code_length: 500000 # Maximum allowed code length in characters
 
 # Early stopping settings
 early_stopping_patience: null # Stop after N iterations without improvement (null = disabled)
@@ -37,7 +36,7 @@ llm:
   # Generation parameters
   temperature: 0.7 # Temperature for generation (higher = more creative)
   top_p: 0.95 # Top-p sampling parameter
-  max_tokens: 4096 # Maximum tokens to generate
+  max_tokens: 10000 # Maximum tokens to generate
 
   # Request parameters
   timeout: 120 # Timeout for API requests in seconds
@@ -51,32 +50,32 @@ prompt:
     You are an expert PlusCal/TLA+ engineer evolving a specification.
 
     Strict TLC-compatible output requirements:
-    - Modify only the PlusCal algorithm strictly within the EVOLVE-BLOCK if present.
+    - Modify only the PlusCal algorithm inside the `(* --algorithm ... *)` section, strictly within the EVOLVE-BLOCK if present.
+    - Follow the user prompt format for expressing edits; do not include explanations.
     - Do NOT change the module header, EXTENDS, CONSTANT(S), any TLA+ operators, Init/Next/Spec, or invariant definitions.
     - Do NOT rename or alter any identifiers referenced by the TLC configuration or invariants (variables, process names, or labels such as `CS`).
 
     Diff-based editing rules (apply minimal diffs inside EVOLVE-BLOCK):
     - Only change lines between `\* EVOLVE-BLOCK-START` and `\* EVOLVE-BLOCK-END` in the provided program file.
-    - Preserve existing labels and their spellings; add new labels when needed.
+    - Keep the algorithm name unchanged unless strictly necessary to fix translation or model checking errors.
+    - Preserve existing labels and their spellings; add new labels only when needed.
+    - Avoid reformatting or renaming unchanged code; keep diffs as small as possible.
     - Do not add or remove the EVOLVE-BLOCK markers themselves.
-    - Use multiple precise search-and-replace operations if needed (e.g., update two separate regions independently); prefer several small, exact replacements over a single broad edit to reduce fuzziness and improve robustness.
 
-    PlusCal syntax and formatting (TLC translator-friendly):
-    - Do NOT use `begin`/`end` or `end algorithm`. Use braces `{}` to delimit all blocks.
-    - The entire algorithm body must also be wrapped in braces immediately after the algorithm header.
-    - Indent like standard Pascal: indent nested blocks consistently; place `{` on the same line as the control/header and align the closing `}` with its opener. Avoid gratuitous reformatting of unchanged lines.
-    - Terminate every statement with `;` (including `goto`, `call`, `return`, assignments, `skip`, `await`, and `if`/`else` blocks).
-    - Conditions use parentheses: `if (COND) { ... } else { ... };`, `while (COND) { ... }`.
+    PlusCal syntax quick reference (TLC translator-friendly):
+    - Use braces style with parentheses around conditions: `while (COND) { ... }`, `if (COND) { ... } else { ... };`
+    - Do NOT use `begin`/`end` or `end algorithm`; always use `{` and `}` for blocks and the algorithm body.
+    - Terminate every statement with `;` (including `goto`, assignments, `skip`, `await`, and `if`/`else` blocks).
     - Assign with `:=`. In `variables`, initialize with `=` or choose with `\in` (e.g., `variables b = [i \in Proc |-> TRUE], k \in Proc;`). Local process vars use `variable x ;`.
     - Process header: `process (P \in Proc)` and index per-process state with `self` (e.g., `b[self]`).
     - Labels: `L1:` at statement start; jump via `goto L1;`. Preserve invariant-dependent labels (e.g., `CS`).
-    - Operators: booleans `TRUE`/`FALSE`, negation `~`, inequality `#`, membership `\in`, set ops `\cup`, `\`, and array indexing `a[i]`.
-    - `with` binding: `with (x \in S) { ... }`. Typical loops: `while (TRUE) { ... }`, `while (temp # {}) { ... }`.
+    - Operators: booleans `TRUE`/`FALSE`, not `~`, inequality `#`, membership `\in`, set difference `\`, and array indexing `a[i]`.
+    - `with` binding: `with (x \in S) { ... }`. Example loops: `while (TRUE) { ... }`, `while (temp # {}) { ... }`.
     - Arrays/functions: `[i \in S |-> v]` comprehensions; update elements with `a[i] := v;`.
-    - Use only valid PlusCal control flow: `while`, `if/else`, `with`, `either/or`, `await`, labeled statements, `goto`, `procedure`/`call`, `return`.
+    - Use only valid PlusCal control flow: `while`, `if/else`, `with`, `either/or`, `await`, labeled statements, `goto`.
 
     Name-safety (avoid collisions with translator/TLC names):
-    - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, `Done`, or any identifier prefixed with `TLATrans_`.
+    - Do NOT declare any variable or label named `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
     - Do NOT define TLA+ operators, constants, or macros outside the algorithm.
 
     TLC compatibility:
@@ -84,22 +83,6 @@ prompt:
     - It must work with `SPECIFICATION Spec` and the existing `INVARIANTS` from the `.cfg` file.
     - Keep any labels and variable names that invariants depend on unchanged (e.g., keep `CS` if the invariant checks it).
 
-    Scoring and evaluation (combined_score):
-    - < 50: Syntax/translation error. Score = 50 * (first_error_line / total_lines). Later errors yield higher scores. Fix syntax first.
-    - = 50: Translation succeeded, but TLC found an invariant/property violation. Fix the algorithm to satisfy invariants.
-    - = 100: TLC reports "No error has been found" (all invariants satisfied).
-
-    Invariant-driven workflow:
-    - First read and internalize the invariants defined in the TLA+ module and those referenced by the `.cfg` file; treat them as fixed requirements.
-    - Determine why the current algorithm may violate these invariants and identify the minimal behavioral changes needed.
-    - Update only within the EVOLVE-BLOCK so that the translated TLA+ satisfies all invariant checks in the `.cfg`.
-    - Do not modify invariant names or definitions, and do not rename identifiers or labels used by the invariants.
-
-    Completeness policy:
-    - Produce a complete, runnable PlusCal algorithm in a single response; do not attempt step-by-step or incremental scaffolding.
-    - Do not include placeholders or dummy code blocks (e.g., '...', 'TODO', stub labels, empty blocks, or labels that only contain a placeholder 'skip').
-    - Only use 'skip' when it is a meaningful control operation; never as filler.
-    - Ensure all branches and labels contain real logic and the algorithm can reach the goal state without additional edits.
 
     This is an example of syntactically correct PlusCal code:
     <example_code>
@@ -112,15 +95,12 @@ prompt:
     } *)
     </example_code>
 
-    Task:
-    <task_description>
-    There are three missionaries and three cannibals on the left bank of a river. They have a single boat that can carry either one or two people at a time. The boat cannot cross by itself; it must always have at least one person on board.
+    IMPORTANT: Ignore the Properties and Definitions below the Algorithm block. These are only there to evalualte later whether the implementation was correct. You should only write pascal code using the Variables from the top, to implement the Transfer over the river and a sequence that solves the problem!
+    So the goal is to implement a solution to the problem that is a concrete PlusCal implementation of the solution.
 
-    The objective is to move all six individuals from the left bank to the right bank of the river. However, the movement must follow a critical safety rule: at no point on either bank may the number of cannibals exceed the number of missionaries, unless there are no missionaries present on that side. If this condition is violated, the missionaries on that side are considered to have been eaten, and the configuration is invalid.
-
-    The challenge is to find a sequence of legal crossings that results in everyone safely reaching the right bank, with the boat’s capacity and the safety constraint respected at all times.
-    Implement this algorithm, that moves all missionaries and cannibals from the left bank to the right bank of the river.
-    </task_description>
+    Implement it with well structured code. Use procedures to avoid code duplication, and thereby give the output program a good structure.
+    Important: Dont use any asserts, you should not generate pluscal solutioin to test invariants. But rahter you should implement the concrete solution.
+    Task: solve the missionaries and cannibals problem
   # evaluator_system_message: |
   #   You are an expert PlusCal/TLA+ reviewer.
   #   Judge programs strictly on whether all invariants hold without any edits to
@@ -224,19 +204,12 @@ evaluator:
     - 0.9 # Third stage threshold
 
   # Parallel evaluation
-  parallel_evaluations: 4 # Number of parallel evaluations
+  parallel_evaluations: 2 # Number of parallel evaluations
   # Note: distributed evaluation is not yet implemented
 
   # LLM-based feedback (experimental)
   use_llm_feedback: false # Use LLM to evaluate code quality
   llm_feedback_weight: 0.1 # Weight for LLM feedback in final score
-
-  # Scoring guide (combined_score):
-  # - < 50: Syntax/translation error. Score = 50 * (first_error_line / total_lines).
-  #         Later errors give higher scores; prioritize fixing syntax first.
-  # - = 50: Translation succeeded, but TLC found invariant/property violations.
-  #         Focus on correcting the algorithm to satisfy the invariants.
-  # - = 100: TLC reports "No error has been found" (all invariants satisfied).
 
 # Evolution trace configuration
 # Logs detailed traces of program evolution for RL training and analysis

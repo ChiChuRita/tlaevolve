@@ -10,5 +10,5 @@ openevolve-run \
 ```
 
 ```bash
-uv run python openevolve/scripts/visualizer.py --path runs/missionaries-and-cannibals/checkpoints/checkpoint_20
+uv run python openevolve/scripts/visualizer.py --path runs/missionaries-and-cannibals6/checkpoints/checkpoint_4
 ```
