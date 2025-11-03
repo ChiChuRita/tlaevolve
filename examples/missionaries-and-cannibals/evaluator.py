@@ -15,7 +15,7 @@ SUCCESS_MSG = "No error has been found"
 MODULE_HEADER_RE = re.compile(r"^\s*-{2,}\s*MODULE\s+([A-Za-z0-9_]+)\s*-{2,}\s*$")
 NAME_MISMATCH_RE = re.compile(r"File name '([^']+)' does not match the name '([^']+)'")
 ARTIFACT_SEPARATOR = "\n---\n"
-SYNTAX_ERR_LINE_RE = re.compile(r"(?i)\bline\s+(\d+)\s*,\s*col(?:umn)?\s+(\d+)")
+SYNTAX_ERR_LINE_RE = re.compile(r"(?i)\bline\s+(\d+)\s*,\s*column\s+(\d+)")
 
 
 def _artifact_instructions(context: str = "tlc") -> str:
@@ -147,21 +147,13 @@ def _evaluate(program_path: str) -> EvaluationResult:
 
         violated_invariant = _parse_violated_invariant(stdout_text)
 
-        syntax_breakdown: Dict[str, float] | None = None
         if ok:
             combined = 100.0
             effective_trace_len = 0
         else:
-            # If TLC failed due to parsing/semantic errors (post-translation),
-            # compute a syntax-based score in [0,50] from the reported error line.
-            if "Parsing or semantic analysis failed" in stdout_text:
-                syntax_score, syntax_breakdown = _syntax_score_from_translator_error(
-                    str(tla_path), stdout_text, stderr_text
-                )
-                combined = float(syntax_score)
-            else:
-                # Invariant/temporal violations after successful parsing get baseline 50.
-                combined = 50.0
+            # Syntax/translation has passed at this point. If TLC did not report success,
+            # assign 50 points regardless of whether the failure is an invariant or temporal violation.
+            combined = 50.0
             effective_trace_len = trace_length
 
         summary = _summarize_tlc_stdout(stdout_text)
@@ -174,8 +166,6 @@ def _evaluate(program_path: str) -> EvaluationResult:
         }
         if violated_invariant:
             artifacts["violated_invariant"] = violated_invariant
-        if syntax_breakdown:
-            artifacts["score_breakdown"] = syntax_breakdown
 
         return EvaluationResult(
             metrics={

@@ -1,12 +1,11 @@
 Also an example from TLA examples, but without a PlusCal section (less change of recitation?)
 
 ```bash
-uv run openevolve-run \
+openevolve-run \
   examples/missionaries-and-cannibals/initial_program.tla \
   examples/missionaries-and-cannibals/evaluator.py \
   --config examples/missionaries-and-cannibals/config.yaml \
-  --output runs/missionaries-and-cannibals \
-  --iterations 50 \
+  --output runs/missionaries-and-cannibals5 \
   --target-score 100
 ```
 

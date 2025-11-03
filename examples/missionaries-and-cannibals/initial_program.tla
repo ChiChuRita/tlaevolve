@@ -2,16 +2,32 @@
 EXTENDS Naturals, FiniteSets, TLC
 
 
+Missionaries == {"M1", "M2", "M3"}
+Cannibals    == {"C1", "C2", "C3"}
+People       == Missionaries \cup Cannibals
+
 \* EVOLVE-BLOCK-START
-(* --algorithm SimpleAlgo
-Assumes elsewhere (from your PlusCal translation or TLA+ spec):
-- CONSTANTS People, Missionaries, Cannibals
-- VARIABLES left, right, boat
-- Init, Next, Spec          (e.g., Spec == Init /\ [][Next]_vars)
-- vars == << left, right, boat >>
-end algorithm *)
+(* --algorithm Algorithm {
+variables
+  left = People,
+  right = {},
+  boat = "left";
+
+\* Helper Method for a single Crossing
+procedure CorssRiver(Passgers) {
+  skip:
+}
+
+\* Main Method
+{
+S1:  call Move({"C1", "C2"}); \* Example Call
+}
+
+} *)
 \* EVOLVE-BLOCK-END
 
+
+\* Dont touch anything below this line, this is for the TLC model checker
 \* Basic helpers
 CountM(S) == Cardinality(S \cap Missionaries)
 CountC(S) == Cardinality(S \cap Cannibals)
