@@ -4,7 +4,7 @@
 
 # General settings
 max_iterations: 40 # Maximum number of evolution iterations
-checkpoint_interval: 10 # Save checkpoints every N iterations
+checkpoint_interval: 5 # Save checkpoints every N iterations
 log_level: "INFO" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_dir: null # Custom directory for logs (default: output_dir/logs)
 random_seed: 42 # Random seed for reproducibility (null = random, 42 = default)
@@ -40,7 +40,7 @@ llm:
   max_tokens: 4096 # Maximum tokens to generate
 
   # Request parameters
-  timeout: 60 # Timeout for API requests in seconds
+  timeout: 120 # Timeout for API requests in seconds
   retries: 3 # Number of retries for failed requests
   retry_delay: 10 # Delay between retries in seconds
 
