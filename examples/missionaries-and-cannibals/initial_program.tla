@@ -15,7 +15,7 @@ variables
 
 \* Implement a single crossing here, which can then be called multiple times in the main method
 procedure CrossRiver(Passgs) {
-  skip:
+  
 }
 
 \* Main Method

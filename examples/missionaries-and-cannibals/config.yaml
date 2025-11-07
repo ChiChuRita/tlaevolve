@@ -110,7 +110,7 @@ prompt:
 
   # Number of examples to include in the prompt
   num_top_programs: 1 # Number of top-performing programs to include
-  num_diverse_programs: 2 # Number of diverse programs to include
+  num_diverse_programs: 3 # Number of diverse programs to include
 
   # Template stochasticity
   use_template_stochasticity: false # Use random variations in templates for diversity
