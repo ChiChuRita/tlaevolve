@@ -13,3 +13,6 @@
   - Pitfalls of Solution: We dont want to incentivice long programs to much
 - Alternative Idea: Use LLM as a judge to assign score
 - Ultimiate Soution (if possible): Have sophisticated prompt so that syntax errors wont happen!!!!
+
+
+- sample a random amount of inspiration programs

@@ -1,3 +1,7 @@
+Shared Folder:
+https://drive.google.com/drive/u/1/folders/1_zVzCmsoeo40qmkAGW7-Qc1soaBx2ESB
+
+
 ## TLAEvolve — evolve TLA+/PlusCal with LLMs and TLC
 
 TLAEvolve aims to automatically synthesize and improve TLA+/PlusCal specifications using an LLM-driven evolutionary loop with TLC as the ground-truth judge. Starting from a seed program, the system proposes changes, runs TLC to check invariants/properties, scores candidates, and iterates until a good solution emerges.

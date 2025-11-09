@@ -1,0 +1,5 @@
+- LLM Eval:
+  - Define LLM Scores (Prompt with sophisticated categories for classification)
+  - Extract Error from TLC output
+- Have hard example where OpenEvolve requires multiple iterations
+- Slide to brainstorm: How to avoid OpenEvolve being stuck in Local Minima
