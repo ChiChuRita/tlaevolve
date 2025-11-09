@@ -100,7 +100,7 @@ uv run openevolve-run \
 Install minimal UI deps and launch the viewer against a checkpoint:
 
 ```bash
-python openevolve/scripts/visualizer.py --path runs/dijstra-mutex/checkpoints/checkpoint_20
+uv run python openevolve/scripts/visualizer.py --path runs/dijstra-mutex/checkpoints/checkpoint_20
 ```
 
 ---
@@ -109,7 +109,7 @@ python openevolve/scripts/visualizer.py --path runs/dijstra-mutex/checkpoints/ch
 
 Evaluators return an `EvaluationResult` with:
 
-- `metrics.combined_score` in 0..100 (100 means TLC found no errors)
+- `metrics.combined_score` in 0-1 (1 means TLC found no errors, thus the code is correct)
 - `metrics.trace_length`, `metrics.runtime_ms`
 - `artifacts.stdout`/`stderr` (TLC output), and a short `artifacts.summary`
 

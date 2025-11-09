@@ -1,0 +1,51 @@
+# Current Program Information
+- Fitness: {fitness_score}
+- Feature coordinates: {feature_coords}
+- Focus areas: {improvement_areas}
+
+{artifacts}
+
+# Program Evolution History
+{evolution_history}
+
+# Current Program
+```{language}
+{current_program}
+```
+
+# Task
+Make minimal, property-preserving PlusCal/TLA+ edits that raise the FITNESS SCORE to 1.0 by ensuring TLC reports "No error has been found".
+
+# Constraints
+- Do NOT change module header, EXTENDS, CONSTANT(S), `Init`, `Next`, `Spec`, fairness or any property/invariant names or definitions used by the `.cfg`.
+- Do NOT rename identifiers referenced by properties or the model config.
+- Preserve existing indentation, labels, and whitespace.
+
+# Strategy
+1) If PlusCal→TLA translation failed, fix syntax/structure first (variables block, labels, braces, semicolons, process headers, await/assert usage).
+2) Otherwise, if TLC found violations/deadlock, adjust the algorithm steps to satisfy invariants/properties without weakening them.
+3) Keep edits minimal and localized.
+
+# PlusCal reminders
+- Use C-style braces `{{ }}`; end each statement with `;`.
+- Declare `variables` once; local variables with `variable x = Expr;`.
+- Label atomic steps and after `call/return/goto`.
+- Use `process P \in ProcSet` and `self` correctly.
+
+# Provide changes in EXACT SEARCH/REPLACE diff format
+
+<<<<<<< SEARCH
+# Original code to find and replace (must match exactly)
+=======
+# New replacement code
+>>>>>>> REPLACE
+
+Example (PlusCal):
+<<<<<<< SEARCH
+variables buf = << >>;
+=======
+variables buf = <<>>;
+>>>>>>> REPLACE
+
+You may include multiple SEARCH/REPLACE blocks. Each SEARCH must match exactly.
+IMPORTANT: Do NOT rewrite the entire program here—focus on targeted fixes.

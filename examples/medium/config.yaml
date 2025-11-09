@@ -1,0 +1,306 @@
+# OpenEvolve Default Configuration
+# This file contains all available configuration options with sensible defaults
+# You can use this as a template for your own configuration
+
+# General settings
+max_iterations: 10 # Maximum number of evolution iterations
+checkpoint_interval: 1 # Save checkpoints every N iterations
+log_level: "DEBUG" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_dir: null # Custom directory for logs (default: output_dir/logs)
+random_seed: 42 # Random seed for reproducibility (null = random, 42 = default)
+language: "tla" # Hint templates/formatting for TLA+/PlusCal
+file_suffix: ".tla" # Ensure .tla is used for saved programs
+
+# Evolution settings
+diff_based_evolution: false # Use diff-based evolution (true) or full rewrites (false)
+max_code_length: 10000 # Maximum allowed code length in characters
+
+# Early stopping settings
+early_stopping_patience: null # Stop after N iterations without improvement (null = disabled)
+convergence_threshold: 0.001 # Minimum improvement required to reset patience counter
+early_stopping_metric: "combined_score" # Metric to track for early stopping
+
+# LLM configuration
+llm:
+  # Models for evolution
+  models:
+    # List of available models with their weights
+    - name: "gpt-5"
+      weight: 1
+
+  # Models for LLM feedback
+  evaluator_models:
+    # List of available models with their weights
+    - name: "gpt-5"
+      weight: 1
+
+  # Generation parameters
+  temperature: 0.7 # Temperature for generation (higher = more creative)
+  top_p: 0.95 # Top-p sampling parameter
+  max_tokens: 4096 # Maximum tokens to generate
+
+  # Request parameters
+  timeout: 180 # Timeout for API requests in seconds
+  retries: 3 # Number of retries for failed requests
+  retry_delay: 5 # Delay between retries in seconds
+
+# Prompt configuration
+prompt:
+  template_dir: null # Custom directory for prompt templates
+  system_message: |
+    ## Scope & Inputs
+    - You may edit **only** inside `EVOLVE-BLOCK` within the `(* --algorithm ... *)` PlusCal section.
+    - **Do not** change the module header, `EXTENDS`, `CONSTANT(S)`, any TLA+ operators, `Init`, `Next`, `Spec`, fairness settings, or the definitions of any properties (invariants or temporal properties) referenced by the spec or `.cfg`.
+    - Parse and internalize the complete **property set** from the spec and `.cfg` (invariants, temporal properties, fairness, deadlock checks) **before** making edits.
+
+    ---
+
+    ## Strict TLC-Compatible Requirements
+    - The program must translate with `pcal.trans` **without errors**.
+    - The resulting TLA+ must satisfy `SPECIFICATION Spec` and **all** checks referenced by the `.cfg`: `INVARIANTS`, `PROPERTIES` (temporal), and `CHECK_DEADLOCK` if present.
+    - Keep **all** labels and variable names that properties/invariants or the `.cfg` depend on **unchanged** (e.g., keep `CS` if any property references it).
+    - **No explanations** in output; follow the user’s required edit/output format. Return **only** the edited PlusCal code inside `EVOLVE-BLOCK`.
+
+    ---
+
+    ## PlusCal Syntax & Formatting Constraints
+    - Variables:
+      - Declare algorithm variables on a single `variables` line with initial values.
+      - Declare process/procedure locals with `variable x = Expr, y = Expr;`.
+    - Statements and blocks:
+      - Use C-style braces for blocks; never use `begin`/`end` or `end algorithm`.
+      - Terminate every statement with `;` (including `if`, `while`, `either`, `with`, `atomic`).
+      - Use `:=` for assignment; parallel assignment is `x := e1 || y := e2;` (atomic).
+      - Array/record updates: `a[i] := v;` and `r.f := v;`.
+    - Control flow:
+      - If/else:
+        ```
+        if (Cond) {
+          ...
+        } else {
+          ...
+        };
+        ```
+      - While:
+        ```
+        while (Cond) {
+          ...
+        };
+        ```
+      - Nondeterministic choice:
+        ```
+        either {
+          ...
+        } or {
+          ...
+        } or {
+          ...
+        };
+        ```
+      - With-binding:
+        ```
+        with (x \in S) {
+          ...
+        };
+        ```
+      - Atomic block:
+        ```
+        atomic {
+          ...
+        };
+        ```
+    - Labels:
+      - Place labels as `Label:` where atomic steps begin; keep labels unique; preserve required labels like `CS`.
+      - After `call`, `return`, or `goto`, the following statement must be labeled.
+    - Processes and concurrency:
+      - Use `process <Name> \in <ExistingProcessSet>` exactly as declared by the module (e.g., `Proc`, `ProcIds`); refer to the process id as `self`.
+    - Common statements:
+      - `await (Cond);`, `assert (Cond);`, `skip;`, `call Proc(args);`, `return;`, `goto L;`
+    - Expressions and comments:
+      - Expressions use TLA+ syntax (e.g., `\in`, `/\`, `\/`, `~`).
+      - Use TLA+ comments `(* ... *)`.
+    - Formatting:
+      - Preserve indentation and existing whitespace style.
+
+    ---
+
+    ## Name-Safety (avoid translator/TLC collisions)
+    - Do **not** declare any variable or label named: `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, or any identifier prefixed with `TLATrans_`.
+    - Do **not** introduce or redefine TLA+ operators, constants, or macros **outside** the algorithm body.
+
+    ---
+
+    ## Property Catalog to Honor (auto-discovered at runtime)
+    Treat every discovered property as a **hard requirement**:
+    - **Safety invariants**: type/shape (e.g., `TypeOK`), bounds, conservation/uniqueness (no-dup/no-loss), mutual exclusion, ordering (FIFO/causal), monotonicity, determinism/confluence, correct frames (`UNCHANGED` discipline).
+    - **Temporal progress**: `[] P`, `<> P`, **leads-to** (`P ~> Q`), stability/persistence, termination (`<> Done`), starvation-freedom/bounded waiting).
+    - **Fairness**: weak/strong fairness on actions or processes as specified (`WF_…`, `SF_…`).
+    - **Deadlock / Livelock**: deadlock freedom (or legitimate termination); progress metrics if required.
+    - **Refinement / Equivalence**: trace refinement to an abstract spec; linearizability/serializability via history variables if present.
+    - **Security / Hyperproperties** (if present): noninterference/observational determinism.
+    - **Coverage / Monitors** (if present): must-fire/action coverage, sanity checks.
+
+    > **Do not** weaken, rename, delete, or shadow any property, identifier, constant, fairness macro, or model parameter used by these checks.
+
+    ---
+
+    ## Change Strategy (minimal, property-preserving)
+    1. **Diagnose first**: Identify the failing layer (parse/translation, type, invariant, temporal, fairness, deadlock) and the exact action/guard/label responsible.
+    2. **Local fix > global rewrite**: Prefer minimal edits to guards, updates, `await`s, and control flow that restore all properties **without** regressing passing ones.
+    3. **Maintain frames**: In every action you touch, explicitly keep untouched variables `UNCHANGED` (or equivalent) so invariants and refinement mappings remain intact.
+    4. **Progress without cheating**: For liveness issues, add genuine enabling/progress steps—do **not** insert stuttering or relax preconditions just to satisfy fairness.
+    5. **Concurrency discipline**: Align enabledness with where fairness is attached; avoid hidden starvation.
+    6. **Types tight**: Preserve/strengthen `TypeOK` and bounds as you edit.
+
+    ---
+
+    ## Forbidden Edits
+    - Renaming variables/labels referenced by properties or the `.cfg`.
+    - Changing any property text, invariants, fairness macros, `.cfg` entries, constants, or model size limits.
+    - Adding `ASSUME TRUE`, unconditional `Skip`, dummy steps, or dead code that masks violations.
+    - Disabling deadlock checks; if termination is intended, reach `Done` legitimately.
+    - **Problem-specific additions**: Do **not** inject new task requirements; only satisfy what the current spec and `.cfg` require.
+
+    ---
+
+    ## Before Returning (Self-Check)
+    Confirm each of the following is preserved by your edit:
+    - **Safety** (Type/Bounds/Uniqueness/ME/Order/Frame) ✅
+    - **Temporal** (`<>` / `[]` / `~>`) ✅
+    - **Fairness** (WF / SF) ✅
+    - **Deadlock / Termination** ✅
+    - **Refinement / Linearizability** (if present) ✅
+    - **Security / Hyperproperties** (if present) ✅
+
+    If two requirements are logically incompatible under current assumptions, do **not** modify properties. Make the smallest algorithmic change that satisfies the stricter one without violating others. If still impossible, add a single line **inside `EVOLVE-BLOCK`** and make no further changes:
+    ```
+    // UNSAT: <one-line reason>
+    ```
+
+    ---
+
+    ## Output Contract
+    - Return **only** the updated PlusCal code **inside `EVOLVE-BLOCK`**.
+    - Follow the caller’s edit/output format. **No commentary** or edits elsewhere.
+    - The translated TLA+ must pass **all** enabled checks in the `.cfg` (invariants, temporal properties, fairness, and deadlock freedom).
+
+  # evaluator_system_message: |
+  #   You are an expert PlusCal/TLA+ reviewer.
+  #   Judge programs strictly on whether all invariants hold without any edits to
+  #   their definitions. Responses that change invariant text or names should be
+  #   considered invalid.
+
+  # Number of examples to include in the prompt
+  num_top_programs: 3 # Number of top-performing programs to include
+  num_diverse_programs: 2 # Number of diverse programs to include
+
+  # Template stochasticity
+  use_template_stochasticity: false # Use random variations in templates for diversity
+  template_variations: # Different phrasings for parts of the template
+    improvement_suggestion:
+      - "Here's how we could improve this code:"
+      - "I suggest the following improvements:"
+      - "We can enhance this code by:"
+
+  # Artifact rendering
+  include_artifacts: true # Include execution outputs/errors in prompt
+  max_artifact_bytes: 20480 # Maximum artifact size in bytes (20KB default)
+  artifact_security_filter: true # Apply security filtering to artifacts
+
+  # Feature extraction and program labeling thresholds
+  # These control how the LLM perceives and categorizes programs
+  # suggest_simplification_after_chars: 500 # Suggest simplifying if program exceeds this many characters
+  # include_changes_under_chars: 100 # Include change descriptions in features if under this length
+  # concise_implementation_max_lines: 10 # Label as "concise" if program has this many lines or fewer
+  # comprehensive_implementation_min_lines: 50 # Label as "comprehensive" if program has this many lines or more
+
+  # Note: meta-prompting features are not yet implemented
+
+# Database configuration
+database:
+  # General settings
+  db_path: null # Path to persist database (null = in-memory only)
+  in_memory: true # Keep database in memory for faster access
+  log_prompts: true # If true, log all prompts and responses into the database
+
+  # Evolutionary parameters
+  population_size: 1000 # Maximum number of programs to keep in memory
+  archive_size: 100 # Size of elite archive
+  num_islands: 5 # Number of islands for island model (separate populations)
+
+  # Island-based evolution parameters
+  # Islands provide diversity by maintaining separate populations that evolve independently.
+  # Migration periodically shares the best solutions between adjacent islands.
+  migration_interval: 50 # Migrate between islands every N generations
+  migration_rate: 0.1 # Fraction of top programs to migrate (0.1 = 10%)
+
+  # Selection parameters
+  elite_selection_ratio: 0.1 # Ratio of elite programs to select
+  exploration_ratio: 0.2 # Ratio of exploration vs exploitation
+  exploitation_ratio: 0.7 # Ratio of exploitation vs random selection
+  # Note: diversity_metric is fixed to "edit_distance" (feature_based not implemented)
+
+  # Feature map dimensions for MAP-Elites
+  # Default if not specified: ["complexity", "diversity"]
+  #
+  # Built-in features (always available, computed by OpenEvolve):
+  #   - "complexity": Code length
+  #   - "diversity": Code structure diversity
+  #
+  # You can mix built-in features with custom metrics from your evaluator:
+  feature_dimensions: # Dimensions for MAP-Elites feature map (for diversity, NOT fitness)
+    - "complexity" # Code length (built-in)
+    - "diversity" # Code diversity (built-in)
+  # Example with custom features:
+  # feature_dimensions:
+  #   - "performance"                 # Must be returned by your evaluator
+  #   - "correctness"                 # Must be returned by your evaluator
+  #   - "memory_efficiency"           # Must be returned by your evaluator
+
+  # Number of bins per dimension
+  # Can be a single integer (same for all dimensions) or a dict
+  feature_bins: 10 # Number of bins per dimension
+  # Example of per-dimension configuration:
+  # feature_bins:
+  #   complexity: 10                  # 10 bins for complexity
+  #   diversity: 15                   # 15 bins for diversity
+  #   performance: 20                 # 20 bins for custom metric
+
+  diversity_reference_size: 20 # Size of reference set for diversity calculation
+
+# Evaluator configuration
+evaluator:
+  # Fitness calculation: Uses 'combined_score' if available, otherwise averages
+  # all metrics EXCEPT those listed in database.feature_dimensions
+
+  # General settings
+  timeout: 1500 # Maximum evaluation time in seconds
+  max_retries: 3 # Maximum number of retries for evaluation
+
+  # Note: resource limits (memory_limit_mb, cpu_limit) are not yet implemented
+
+  # Evaluation strategies
+  cascade_evaluation: false # Use cascade evaluation to filter bad solutions early
+  cascade_thresholds: # Thresholds for advancing to next evaluation stage
+    - 0.5 # First stage threshold
+    - 0.75 # Second stage threshold
+    - 0.9 # Third stage threshold
+
+  # Parallel evaluation
+  parallel_evaluations: 3 # Number of parallel evaluations
+  # Note: distributed evaluation is not yet implemented
+
+  # LLM-based feedback (experimental)
+  use_llm_feedback: false # Use LLM to evaluate code quality
+  llm_feedback_weight: 0.1 # Weight for LLM feedback in final score
+
+# Evolution trace configuration
+# Logs detailed traces of program evolution for RL training and analysis
+evolution_trace:
+  enabled: false # Enable evolution trace logging
+  format: "jsonl" # Output format: 'jsonl', 'json', or 'hdf5'
+  include_code: true # Include full program code in traces
+  include_prompts: true # Include prompts and LLM responses
+  output_path: null # Path for trace output (defaults to output_dir/evolution_trace.{format})
+  buffer_size: 10 # Number of traces to buffer before writing
+  compress: false # Compress output file (jsonl only)

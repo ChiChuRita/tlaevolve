@@ -1,0 +1,45 @@
+You are given a PlusCal/TLA+ program and the last execution artifacts (translator and TLC output if any).
+Summarize the outcome for use as feedback to fix the program.
+
+Focus order:
+1) If PlusCal→TLA translation failed, identify syntax/structural issues (likely location/label) and propose minimal fixes. Consider that failures can also arise from wrong imports/EXTENDS, unresolved modules, or mismatched identifiers.
+2) Else if TLC ran and found violations/deadlock/runtime errors, list violated properties/invariants or deadlock evidence and suggest minimal algorithm edits (without changing properties).
+3) Else if TLC reported success, confirm validity.
+
+Important: The Program snippet may be the pre-translation PlusCal/TLA+ source. Do NOT infer translation status from the presence/absence of Init/Next/Spec in the Program. Determine:
+- build_validity_score from the unified Artifacts stdout/stderr (imports/EXTENDS, module resolution, parsing, config discovery). Translator messages typically include "pcal.trans" and parser error lines/columns.
+- verification_pass_score from the unified Artifacts stdout (e.g., contains "No error has been found" when TLC succeeds).
+
+Scoring guidance:
+- build_validity_score: Reflects PlusCal→TLA translation success and readiness to run TLC (imports/EXTENDS, module resolution, parsing, config discovery). Use 1.0 when translation succeeded and config/module resolution is correct; scale down toward 0.0 based on number/severity of issues observed in translator stdout/stderr.
+- verification_pass_score: Reflects TLC outcome. Use 1.0 if tlc_output contains "No error has been found". If properties are violated, deadlock occurs, or runtime errors are present, set < 1.0 proportional to the number and magnitude of violations.
+
+Note: The final fitness is computed by the system as 0.8 * evaluator_score (binary from TLC) + 0.2 * average(build_validity_score, verification_pass_score). Do not include any other numeric metrics.
+
+Provide a single JSON object with this schema:
+{{
+  "build_validity_score": 0.0,
+  "verification_pass_score": 0.0,
+  "status": "translation_error | syntax_error | property_violation | deadlock | valid | other_error",
+  "primary_issue": "one-line summary",
+  "evidence": ["short quote 1", "short quote 2"],
+  "violated_properties": ["InvName1", "InvName2"],
+  "error_lines": ["Parser error line ..."],
+}}
+
+Mandatory decision rules:
+- Set verification_pass_score based on stdout. If stdout contains "No error has been found", set verification_pass_score=1.0 and do not set status=translation_error.
+- Never claim "no artifacts provided" when stdout or stderr is present in Artifacts (they are always provided; they may be empty strings).
+- Do not infer translation success from the Program; only from stdout/stderr artifacts. Treat "pcal.trans" messages or parser errors as translation-stage signals; treat TLC messages (e.g., "TLC2", states generated, invariant violations) as TLC-stage signals.
+
+Context:
+
+## Artifacts (authoritative)
+Use this output to determine build_validity_score and verification_pass_score. Read this first. Keys: stdout/stderr (unified; may contain either translator or TLC messages).
+{artifacts}
+
+## Untranslated Program
+Reminder: The code below is the untranslated PlusCal/TLA+ source. Determine translation status/issues solely from the Artifacts (translator_output/translator_error). Do not infer translation from the presence/absence of Init/Next/Spec here.
+```{language}
+{current_program}
+```

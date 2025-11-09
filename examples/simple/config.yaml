@@ -8,7 +8,7 @@ checkpoint_interval: 1 # Save checkpoints every N iterations
 log_level: "DEBUG" # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_dir: null # Custom directory for logs (default: output_dir/logs)
 random_seed: 42 # Random seed for reproducibility (null = random, 42 = default)
-language: "tla" # Hint templates/formatting for TLA+/PlusCal§
+language: "tla" # Hint templates/formatting for TLA+/PlusCal
 file_suffix: ".tla" # Ensure .tla is used for saved programs
 
 # Evolution settings
@@ -25,40 +25,97 @@ llm:
   # Models for evolution
   models:
     # List of available models with their weights
-    - name: "gpt-5-nano"
+    - name: "gpt-5"
       weight: 1
-      api_base: "https://api.openai.com/v1"
 
   # Models for LLM feedback
   evaluator_models:
     # List of available models with their weights
-    - name: "gpt-5-nano"
+    - name: "gpt-5"
       weight: 1
-      api_base: "https://api.openai.com/v1"
 
   # Generation parameters
   # temperature: 0.7 # Temperature for generation (higher = more creative)
   # top_p: 0.95 # Top-p sampling parameter
-  max_tokens: 16384 # Maximum tokens to generate
+  # max_tokens: 4096 # Maximum tokens to generate
 
   # Request parameters
-  timeout: 600 # Timeout for API requests in seconds
+  timeout: 180 # Timeout for API requests in seconds
   retries: 3 # Number of retries for failed requests
   retry_delay: 5 # Delay between retries in seconds
 
 # Prompt configuration
 prompt:
-  template_dir: ./examples/hard/prompts # Custom directory for prompt templates
-  system_message: system_message
-  evaluator_system_message: evaluator_system_message
+  template_dir: null # Custom directory for prompt templates
+  system_message: |
+    ## Goal
+    - Translate with pcal.trans and pass all .cfg checks. No commentary.
+    - Algorithmic task: Implement a single-process counter.
+      Initialize x = 0; when x < 10, increment x by 1; never exceed 10.
+      Preserve SafeBounds (x ∈ 0..10) and satisfy CountsUp:
+      ∀ k ∈ 0..9: (x = k) ~> (x = k + 1) under WF_vars(Next).
+
+    ## Scoring rubric (this task)
+    - combined_score 100: TLC reports "No error has been found" (valid spec).
+    - combined_score 50: PlusCal translated but TLC found violations/deadlock/runtime errors.
+    - combined_score 0: PlusCal translation failed or evaluation error.
+    - Target: raise combined_score to 100 via minimal, property-preserving edits.
+
+    ## Artifact hints
+    - translator_stdout/stderr: fix PlusCal syntax/label/structure errors first.
+    - tlc_stdout: fix invariants/properties/fairness/deadlock by adjusting algorithm (not properties).
+
+    ## Scope
+    - Do not change module header, EXTENDS, CONSTANT(S), TLA+ operators, Init/Next/Spec, fairness, or property definitions.
+    - Keep identifiers referenced by properties/.cfg unchanged (e.g., labels like CS, variables).
+
+    ## PlusCal rules
+    - Use C-style braces; end every statement with ';'.
+    - Declarations: single `variables ...` line; locals via `variable x = Expr;`.
+    - Common: await, assert, skip, call, return, goto. Expressions use TLA+ syntax (\in, /\, \/, ~).
+    - Label atomic steps and after call/return/goto. Use `process <Name> \in <Set>` and `self`.
+    - Preserve existing indentation and whitespace.
+
+    ## Name safety
+    - Do not introduce: `pc`, `vars`, `ProcSet`, `defaultInitValue`, `Init`, `Next`, `Spec`, `TLATrans_*`.
+
+    ## Properties to honor
+    - Safety, temporal, fairness, deadlock/termination; refinement/security if present.
+    - Do not weaken/rename/delete properties or model parameters.
+
+    ## Change strategy
+    - Property-preserving edits.
+    - Maintain frames (keep untouched variables unchanged).
+    - Genuine progress; align enabledness with fairness; keep types tight.
+
+    ## Forbidden
+    - Renaming identifiers used by properties/.cfg; changing properties/.cfg; dummy steps; disabling deadlock.
+
+    ## Self-check
+    - Safety, Temporal, Fairness, Deadlock, Refinement/Security (if present).
+    - If impossible, add: `// UNSAT: <one-line reason>`.
+
+  # evaluator_system_message: |
+  #   You are an expert PlusCal/TLA+ reviewer.
+  #   Judge programs strictly on whether all invariants hold without any edits to
+  #   their definitions. Responses that change invariant text or names should be
+  #   considered invalid.
 
   # Number of examples to include in the prompt
-  num_top_programs: 0 # Number of top-performing programs to include
-  num_diverse_programs: 0 # Number of diverse programs to include
+  num_top_programs: 3 # Number of top-performing programs to include
+  num_diverse_programs: 2 # Number of diverse programs to include
+
+  # Template stochasticity
+  use_template_stochasticity: false # Use random variations in templates for diversity
+  template_variations: # Different phrasings for parts of the template
+    improvement_suggestion:
+      - "Here's how we could improve this code:"
+      - "I suggest the following improvements:"
+      - "We can enhance this code by:"
 
   # Artifact rendering
   include_artifacts: true # Include execution outputs/errors in prompt
-  max_artifact_bytes: 50000 # Maximum artifact size in bytes (20KB default)
+  max_artifact_bytes: 20480 # Maximum artifact size in bytes (20KB default)
   artifact_security_filter: true # Apply security filtering to artifacts
 
   # Feature extraction and program labeling thresholds
@@ -145,13 +202,13 @@ evaluator:
   # Note: distributed evaluation is not yet implemented
 
   # LLM-based feedback (experimental)
-  use_llm_feedback: true # Use LLM to summarize TLC/translator outcomes for feedback
-  llm_feedback_weight: 0.2 # Weight for LLM feedback in final score (metrics-only)
+  use_llm_feedback: false # Use LLM to evaluate code quality
+  llm_feedback_weight: 0.1 # Weight for LLM feedback in final score
 
 # Evolution trace configuration
 # Logs detailed traces of program evolution for RL training and analysis
 evolution_trace:
-  enabled: true # Enable evolution trace logging
+  enabled: false # Enable evolution trace logging
   format: "jsonl" # Output format: 'jsonl', 'json', or 'hdf5'
   include_code: true # Include full program code in traces
   include_prompts: true # Include prompts and LLM responses

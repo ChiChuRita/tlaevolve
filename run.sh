@@ -8,7 +8,7 @@ set -euo pipefail
 #   ./run_example.sh peterson_pluscal 120 --log-level DEBUG
 
 NAME="${1:-tla_counter}"
-ITERATIONS="${2:-50}"
+ITERATIONS="${2:-10}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXAMPLE_DIR="${ROOT_DIR}/examples/${NAME}"
@@ -29,6 +29,7 @@ if [[ -f "${ROOT_DIR}/.env" ]]; then
   set +a
 fi
 
+
 # Validate inputs
 if [[ ! -f "${PROGRAM}" ]]; then
   echo "Program not found: ${PROGRAM}" >&2
@@ -48,7 +49,7 @@ mkdir -p "${OUTPUT_DIR}"
 echo "Running example '${NAME}' for ${ITERATIONS} iterations..."
 echo "Output directory: ${OUTPUT_DIR}"
 
-uv run openevolve-run \
+uv run python -m openevolve.cli \
   "${PROGRAM}" \
   "${EVALUATOR}" \
   --config "${CONFIG}" \

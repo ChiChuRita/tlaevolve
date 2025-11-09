@@ -1,4 +1,5 @@
 ---- MODULE HardQueue ----
+\* EVOLVE-BLOCK-START
 EXTENDS Naturals, Sequences, TLC
 
 CONSTANTS ProducerIds, ConsumerIds, Capacity, MaxSeq
@@ -9,10 +10,17 @@ ElemSet(s) == { s[i] : i \in 1..Len(s) }
 
 IsUnique(seq) == \A i, j \in 1..Len(seq): i # j => seq[i] # seq[j]
 
-\* EVOLVE-BLOCK-START
-(* --algorithm HardQueueAlgo
+(* --algorithm HardQueueAlgo {
+  variables stubVar = 0;
 
-\* EVOLVE-BLOCK-END
+  process (Dummy = 0)
+  {
+  DummyLoop:
+    while (TRUE) {
+      skip;
+    };
+  };
+} *)
 
 \* Invariants (safety properties)
 TypeOK ==
@@ -40,6 +48,9 @@ AllProduced == \A p \in ProducerIds: nextSeq[p] = MaxSeq
 EventuallyAllProduced == <> AllProduced
 
 EventuallyDrained == <> (Len(buf) = 0 /\ ElemSet(consumed) = ElemSet(produced))
+
+\* Disallow steps that only stutter on the main state variables
+NoStutter == ~UNCHANGED <<buf, produced, consumed, nextSeq>>
 
 ====
 
