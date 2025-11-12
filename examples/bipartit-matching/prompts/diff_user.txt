@@ -1,0 +1,65 @@
+# Current Program Information
+- Fitness: {fitness_score}
+- Feature coordinates: {feature_coords}
+
+{artifacts}
+
+# Program Evolution History
+{evolution_history}
+
+# Current Program
+```{language}
+{current_program}
+```
+
+# Task
+Make minimal, property-preserving PlusCal/TLA+ edits that raise the FITNESS SCORE to 1.0 by ensuring TLC reports "No error has been found".
+
+# Constraints
+- Do NOT change module header, EXTENDS, CONSTANT(S), `Init`, `Next`, `Spec`, fairness or any property/invariant names or definitions used by the `.cfg`.
+- Do NOT rename identifiers referenced by properties or the model config.
+- Preserve existing indentation, labels, and whitespace.
+
+# Strategy
+1) If PlusCal→TLA translation failed, fix syntax/structure first (variables block, labels, braces, semicolons, process headers, await/assert usage).
+2) Otherwise, if TLC found violations/deadlock, adjust the algorithm steps to satisfy invariants/properties without weakening them.
+3) Keep edits minimal and localized.
+
+# PlusCal reminders
+- Use C-style braces `{{ }}`; end each statement with `;`.
+- Declare `variables` once; local variables with `variable x = Expr;`.
+- Label atomic steps and after `call/return/goto`.
+- Use `process P \in ProcSet` and `self` correctly.
+- Do not mix dialects: if you open with `{`, do NOT use `begin/end algorithm`; close with `}` only.
+- Add labels before loops/blocks in C-style; all `goto` targets must exist.
+- Avoid reserved labels like `Done`; use `Finish` (or similar) instead.
+- Do not write `};` after a block; close with `}` only.
+- Keep TLA+ `define`/operators outside the PlusCal body; never end `define` lines with `;`.
+
+# Tiny C-style skeleton (for structure only)
+```tla
+(* --algorithm Name {
+variables x = 0;
+{
+  L0:
+    while (TRUE) {
+      L1: skip;
+    };
+};
+} *)
+```
+
+# Provide changes in EXACT SEARCH/REPLACE diff format
+
+<<<<<<< SEARCH
+# Original code to find and replace (must match exactly)
+=======
+# New replacement code
+>>>>>>> REPLACE
+
+Example (PlusCal):
+<<<<<<< SEARCH
+variables buf = << >>;
+=======
+variables buf = <<>>;
+>>>>>>> REPLACE
