@@ -1,0 +1,34 @@
+# Current Program Information
+- Fitness: {fitness_score}
+
+{artifacts}
+
+# Program Evolution History
+{evolution_history}
+
+# Current Program
+```{language}
+{current_program}
+```
+
+# Task
+Make minimal, property-preserving PlusCal/TLA+ edits that raise the FITNESS SCORE to 1.0 by ensuring TLC reports "No error has been found".
+
+# Notes
+- Follow all constraints and PlusCal reminders in `system_message.txt` (do not repeat them here).
+- Focus order: (1) fix translation issues first; (2) then satisfy invariants/properties; (3) keep edits minimal/localized.
+
+# Provide changes in EXACT SEARCH/REPLACE diff format
+
+<<<<<<< SEARCH
+# Original code to find and replace (must match exactly)
+=======
+# New replacement code
+>>>>>>> REPLACE
+
+Example (PlusCal):
+<<<<<<< SEARCH
+variables buf = << >>;
+=======
+variables buf = <<>>;
+>>>>>>> REPLACE

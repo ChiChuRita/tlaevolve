@@ -49,7 +49,7 @@ mkdir -p "${OUTPUT_DIR}"
 echo "Running example '${NAME}' for ${ITERATIONS} iterations..."
 echo "Output directory: ${OUTPUT_DIR}"
 
-uv run python -m openevolve.cli \
+uv run python "${ROOT_DIR}/openevolve/openevolve/cli.py" \
   "${PROGRAM}" \
   "${EVALUATOR}" \
   --config "${CONFIG}" \

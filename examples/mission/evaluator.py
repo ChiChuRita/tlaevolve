@@ -38,11 +38,25 @@ def _evaluate_core(program_path: str) -> EvaluationResult:
     project_root = Path(__file__).resolve().parents[2]
     jar_path = os.getenv("TLA_TOOLS_JAR") or str(project_root / "tools" / "tla2tools.jar")
     if not Path(jar_path).exists():
-        return EvaluationResult(metrics={"combined_score": 0.0}, artifacts={"stdout": "", "stderr": ""})
+        return EvaluationResult(
+            metrics={"combined_score": 0.0},
+            artifacts={
+                "stdout": "",
+                "stderr": f"Missing TLA+ tools JAR.\nExpected at: {jar_path}\n"
+                          f"Set environment variable TLA_TOOLS_JAR or place tla2tools.jar under tools/."
+            },
+        )
 
     program_src = Path(program_path)
     if not program_src.exists():
-        return EvaluationResult(metrics={"combined_score": 0.0}, artifacts={"stdout": "", "stderr": ""})
+        return EvaluationResult(
+            metrics={"combined_score": 0.0},
+            artifacts={
+                "stdout": "",
+                "stderr": f"Program TLA file not found: {program_src}\n"
+                          f"Verify the path and filename (e.g., initial_program.tla)."
+            },
+        )
 
     with tempfile.TemporaryDirectory() as temp_dir_str:
         temp_dir = Path(temp_dir_str)
@@ -54,12 +68,23 @@ def _evaluate_core(program_path: str) -> EvaluationResult:
 
         cfg_src = _resolve_cfg(program_src.parent)
         if cfg_src is None:
-            fallback_cfg = _resolve_cfg(Path(__file__).resolve().parent)
+            fallback_dir = Path(__file__).resolve().parent
+            fallback_cfg = _resolve_cfg(fallback_dir)
             if fallback_cfg is None:
-                return EvaluationResult(metrics={"combined_score": 0.0}, artifacts={"stdout": "", "stderr": ""})
+                return EvaluationResult(
+                    metrics={"combined_score": 0.0},
+                    artifacts={
+                        "stdout": "",
+                        "stderr": (
+                            "Missing TLC configuration file tlc.cfg.\n"
+                            f"Searched in: {program_src.parent} and {fallback_dir}\n"
+                            "Place a tlc.cfg next to the program or provide a fallback in the evaluator directory."
+                        ),
+                    },
+                )
             cfg_src = fallback_cfg
 
-        cfg_path = temp_dir / "tlc_config.cfg"
+        cfg_path = temp_dir / "tlc.cfg"
         shutil.copy2(cfg_src, cfg_path)
 
         # Translate PlusCal to TLA; if translation fails, return translator output/error as artifacts
@@ -142,10 +167,9 @@ def _run_tlc(*, work_dir: Path, jar_path: str, tla_filename: str, cfg_path: Path
 
 
 def _resolve_cfg(search_dir: Path) -> Optional[Path]:
-    for name in ("tcl_config.cfg", "tlc_config.cfg", "config.cfg"):
-        candidate = search_dir / name
-        if candidate.exists():
-            return candidate
+    candidate = search_dir / "tlc.cfg"
+    if candidate.exists():
+        return candidate
     return None
 
 

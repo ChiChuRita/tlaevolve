@@ -1,0 +1,72 @@
+# Current Program Information
+- Fitness: {fitness_score}
+- Feature coordinates: {feature_coords}
+
+{artifacts}
+
+# Program Evolution History
+{evolution_history}
+
+# Current Program
+```{language}
+{current_program}
+```
+
+# Task
+Provide a complete PlusCal/TLA+ rewrite of the algorithm that achieves FITNESS SCORE 1.0 (TLC: "No error has been found").
+
+- The system maintains diversity across these dimensions: {feature_dimensions}
+- If a minimal diff cannot resolve the issues, produce a clean, correct rewrite.
+
+# Hard constraints
+- Keep module header, EXTENDS, CONSTANT(S), `Init`, `Next`, `Spec`, fairness and all property/invariant names and definitions unchanged.
+- Keep identifiers referenced by the `.cfg` unchanged.
+- Maintain the same variables and observable behavior required by properties.
+
+# Guidance
+- Ensure PlusCal translates (fix syntax/structure first), then satisfy all invariants/properties and avoid deadlock.
+- Use clear labels and atomic steps; maintain frames so untouched variables remain unchanged.
+- Prefer simple, obviously-correct steps over clever ones.
+
+# Output
+Return ONLY the full TLA+ module text (including the PlusCal algorithm block) between code fences:
+
+```{language}
+# Your rewritten program here
+```
+# Current Program Information
+- Fitness: {fitness_score}
+- Feature coordinates: {feature_coords}
+
+{artifacts}
+
+# Program Evolution History
+{evolution_history}
+
+# Current Program
+```{language}
+{current_program}
+```
+
+# Task
+Provide a complete PlusCal/TLA+ rewrite of the algorithm that achieves FITNESS SCORE 1.0 (TLC: "No error has been found").
+
+- The system maintains diversity across these dimensions: {feature_dimensions}
+- If a minimal diff cannot resolve the issues, produce a clean, correct rewrite.
+
+# Hard constraints
+- Keep module header, EXTENDS, CONSTANT(S), `Init`, `Next`, `Spec`, fairness and all property/invariant names and definitions unchanged.
+- Keep identifiers referenced by the `.cfg` unchanged.
+- Maintain the same variables and observable behavior required by properties.
+
+# Guidance
+- Ensure PlusCal translates (fix syntax/structure first), then satisfy all invariants/properties and avoid deadlock.
+- Use clear labels and atomic steps; maintain frames so untouched variables remain unchanged.
+- Prefer simple, obviously-correct steps over clever ones.
+
+# Output
+Return ONLY the full TLA+ module text (including the PlusCal algorithm block) between code fences:
+
+```{language}
+# Your rewritten program here
+```

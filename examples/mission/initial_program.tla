@@ -1,5 +1,14 @@
 ---- MODULE System ----
 
+(*
+High-Level Summary
+- This system models bears and deers crossing a river using a boat, with a safety constraint that deers must not be outnumbered by bears on either bank.
+- Objective: move all animals to the far bank without ever violating the safety constraint.
+- Assumptions: none beyond what is stated; all open points are listed below as questions.
+- Out of scope: swimming, additional species, external interventions other than moving the boat.
+*)
+
+\* EVOLVE-BLOCK-START
 EXTENDS Naturals, FiniteSets, TLC, Sequences
 
 CONSTANTS
@@ -7,25 +16,8 @@ CONSTANTS
   NDeers0,
   Capacity
 
- 
-(*
-High-Level Summary
-- This system models bears and deers crossing a river using a boat, with a safety constraint that deers must not be outnumbered by bears on either bank.
-- Objective: move all animals to the far bank without ever violating the safety constraint.
-- Assumptions: none beyond what is stated; all open points are listed below as questions.
-- Out of scope: swimming, additional species, external interventions other than moving the boat.
-
-
-*)
-
-\* EVOLVE-BLOCK-START
-
 (*--algorithm Algorithm {
-variables
-  bearsLeft   = NBears0,
-  deersLeft   = NDeers0,
-  boatOnLeft  = TRUE;
-
+    \* Here goes the algorithm
 }*)
 
 \* EVOLVE-BLOCK-END
@@ -52,6 +44,13 @@ Inv_Safety ==
 Inv_TotalsConstant ==
   /\ bearsLeft + bearsRight = NBears0
   /\ deersLeft + deersRight = NDeers0
+
+\* Sanity: initial values match declared initialization
+Inv_InitState ==
+  Init =>
+    /\ bearsLeft = NBears0
+    /\ deersLeft = NDeers0
+    /\ boatOnLeft = TRUE
 
 \* Properties
 AllOnRight == /\ bearsLeft = 0 /\ deersLeft = 0

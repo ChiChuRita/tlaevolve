@@ -32,7 +32,7 @@ llm:
   # Models for LLM feedback
   evaluator_models:
     # List of available models with their weights
-    - name: "gpt-5"
+    - name: "gpt-5-mini"
       weight: 1
       api_base: "https://api.openai.com/v1"
 
@@ -48,7 +48,7 @@ llm:
 
 # Prompt configuration
 prompt:
-  template_dir: ./examples/hard/prompts # Custom directory for prompt templates
+  template_dir: ./examples/mission/prompts # Custom directory for prompt templates
   system_message: system_message
   evaluator_system_message: evaluator_system_message
 

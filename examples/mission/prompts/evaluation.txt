@@ -1,0 +1,36 @@
+You are given a PlusCal/TLA+ program and execution artifacts (translator and TLC output).
+Summarize the outcome; report errors without suggesting fixes.
+
+Focus order:
+1) If PlusCal→TLA translation failed, identify syntax/structural issues and likely location/label. Note: failures can also arise from wrong imports/EXTENDS, unresolved modules, or mismatched identifiers. Do not propose fixes.
+2) Else if TLC ran and found violations/deadlock/runtime errors, list violated properties/invariants and any deadlock evidence. Do not suggest fixes.
+3) Else if TLC reported success, confirm validity.
+
+Scoring guidance:
+- build_validity_score: Reflects PlusCal→TLA translation success and readiness to run TLC. Use 1.0 when translation succeeded and config/module resolution is correct; scale down toward 0.0 based on number/severity of issues.
+- verification_pass_score: Reflects TLC outcome. Use 1.0 if output contains "No error has been found". If properties are violated, deadlock occurs, or runtime errors are present, set < 1.0 proportional to violations.
+
+Note: The final fitness is computed by the system as 0.8 * evaluator_score (binary from TLC) + 0.2 * average(build_validity_score, verification_pass_score). Do not include any other numeric metrics.
+
+Provide a single JSON object with this schema:
+{{
+  "build_validity_score": 0.0,
+  "verification_pass_score": 0.0,
+  "status": "translation_error | syntax_error | property_violation | deadlock | valid | other_error",
+  "primary_issue": "one-line summary",
+  "evidence": ["short quote 1", "short quote 2"],
+  "violated_properties": ["InvName1", "InvName2"],
+  "error_lines": ["Parser error line ..."],
+}}
+
+Context:
+
+## Artifacts
+Translator and TLC output (stdout/stderr may contain either translator or TLC messages):
+{artifacts}
+
+## Untranslated Program
+Note: The code below is the untranslated PlusCal/TLA+ source. Translation status should be determined from the Artifacts above.
+```{language}
+{current_program}
+```
